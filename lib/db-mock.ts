@@ -15,13 +15,13 @@ export interface InventoryEvent {
 
 // In-memory storage
 let mockItems: string[] = ['Laptop', 'Mouse', 'Keyboard', 'Monitor', 'Headphones'];
-let mockTypes: Record<string, string[]> = {
+const mockTypes: Record<string, string[]> = {
   'Laptop': ['Dell', 'HP', 'Lenovo'],
   'Mouse': ['Wireless', 'Wired'],
   'Keyboard': ['Mechanical', 'Membrane']
 };
 let mockSources: string[] = ['Warehouse A', 'Warehouse B', 'Supplier Direct'];
-let mockSuppliers: Record<string, string[]> = {
+const mockSuppliers: Record<string, string[]> = {
   'Warehouse A': ['TechCorp', 'GlobalSupply'],
   'Warehouse B': ['LocalVendor'],
   'Supplier Direct': ['DirectImport']

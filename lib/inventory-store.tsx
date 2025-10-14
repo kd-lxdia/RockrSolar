@@ -8,9 +8,7 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
-  setDoc,
-  getDocs,
-  updateDoc
+  setDoc
 } from "firebase/firestore";
 
 // Types
@@ -75,15 +73,6 @@ const getDeletedFromStorage = (key: string): Set<string> => {
   }
 };
 
-const saveDeletedToStorage = (key: string, deleted: Set<string>) => {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(key, JSON.stringify([...deleted]));
-  } catch (e) {
-    console.error('Failed to save deleted items:', e);
-  }
-};
-
 // Helper functions for general data persistence
 const getEventsFromStorage = (): InventoryEvent[] => {
   if (typeof window === 'undefined') return [];
@@ -102,16 +91,6 @@ const getStringArrayFromStorage = (key: string): string[] => {
     return stored ? JSON.parse(stored) : [];
   } catch {
     return [];
-  }
-};
-
-const getStringRecordFromStorage = (key: string): Record<string, string[]> => {
-  if (typeof window === 'undefined') return {};
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
   }
 };
 

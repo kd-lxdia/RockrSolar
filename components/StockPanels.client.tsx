@@ -250,7 +250,7 @@ export default function StockPanels() {
     } else {
       setType("");
     }
-  }, [item, inv.getTypesForItem, type]);
+  }, [item, inv.getTypesForItem, type, inv]);
 
   // Initialize source selection when sources become available
   React.useEffect(() => {
@@ -326,12 +326,12 @@ export default function StockPanels() {
   };
 
   // Stock Out Table Functions
-  const getCurrentStock = (itemName: string, type: string): number => {
+  const getCurrentStock = React.useCallback((itemName: string, type: string): number => {
     if (!itemName || !type) return 0;
     return inv.events
       .filter(e => e.item === itemName && e.type === type)
       .reduce((total, e) => total + (e.kind === "IN" ? e.qty : -e.qty), 0);
-  };
+  }, [inv.events]);
 
   const initializeStockOutTable = () => {
     const rows: StockOutRow[] = inv.items.map(itemName => {
@@ -380,7 +380,7 @@ export default function StockPanels() {
         currentStock: getCurrentStock(row.item, row.type)
       })));
     }
-  }, [inv.events, showStockOutTable]);
+  }, [inv.events, showStockOutTable, getCurrentStock, stockOutRows.length]);
 
   const processStockOutTable = () => {
     stockOutRows.forEach(row => {
