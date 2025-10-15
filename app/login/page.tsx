@@ -84,7 +84,7 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 className="w-full p-3 rounded-lg bg-neutral-800/50 text-neutral-100 border border-neutral-700/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                placeholder="admin@rockersolar.com"
+                placeholder="Enter your email"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -134,13 +134,7 @@ export default function LoginPage() {
             )}
           </button>
 
-          <div className="text-center pt-4 border-t border-neutral-800">
-            <p className="text-neutral-500 text-xs">
-              Demo Credentials:<br />
-              <span className="text-neutral-400">Admin: admin@rockersolar.com / admin123</span><br />
-              <span className="text-neutral-400">User: user@rockersolar.com / user123</span>
-            </p>
-          </div>
+          
         </form>
       </div>
     </div>
