@@ -268,10 +268,10 @@ export default function StockPanels() {
   const [reportFrom, setReportFrom] = React.useState<string>("");
   const [reportTo, setReportTo] = React.useState<string>("");
 
-  const handleStockIn = () => {
+  const handleStockIn = async () => {
     if (!item || !type || !qin || Number(qin) <= 0) return;
 
-    inv.addEvent({
+    await inv.addEvent({
       item,
       type,
       qty: Number(qin),

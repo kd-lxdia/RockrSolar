@@ -1,8 +1,9 @@
 "use client"
 
-import { Home, ArrowDownLeft, ArrowUpRight, Boxes } from "lucide-react"
+import { Home, ArrowDownLeft, ArrowUpRight, Boxes, LogOut, User } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/lib/auth-context"
 
 const nav = [
   { label: "Home", icon: Home },
@@ -12,6 +13,8 @@ const nav = [
 ]
 
 export function Sidebar({ onSelect }: { onSelect?: (key: "home" | "in" | "out" | "total") => void }) {
+  const { username, role, logout } = useAuth();
+  
   return (
     <aside className="hidden md:flex flex-col w-64 bg-[#0e0f12] border-r border-neutral-800 text-neutral-200">
       <div className="px-5 py-4 border-b border-neutral-800">
@@ -43,7 +46,26 @@ export function Sidebar({ onSelect }: { onSelect?: (key: "home" | "in" | "out" |
           ))}
         </ul>
       </nav>
-      <div className="px-3 py-4 text-[11px] text-neutral-500 border-t border-neutral-800">Admin Settings</div>
+      
+      {/* User Info and Logout */}
+      <div className="border-t border-neutral-800">
+        <div className="px-3 py-3 flex items-center gap-3">
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600/20 text-blue-400">
+            <User size={16} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs text-neutral-100 truncate">{username || "User"}</div>
+            <div className="text-[10px] text-neutral-500 uppercase">{role || "guest"}</div>
+          </div>
+        </div>
+        <button
+          onClick={logout}
+          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-950/50 transition-colors"
+        >
+          <LogOut size={16} />
+          <span>Logout</span>
+        </button>
+      </div>
     </aside>
   )
 }

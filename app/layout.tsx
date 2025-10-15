@@ -8,6 +8,7 @@ import "./globals.css";
 
 // 👇 add these imports
 import { InventoryProvider } from "@/lib/inventory-store-postgres";
+import { AuthProvider } from "@/lib/auth-context";
 import ClientOnly from "@/components/ClientOnly";
 
 export const metadata: Metadata = {
@@ -29,9 +30,11 @@ export default function RootLayout({
       <body className="font-sans">
         {/* Client provider supplies PostgreSQL-backed inventory state to the whole app */}
         <ClientOnly fallback={<div className="h-screen bg-[#0b0c10] flex items-center justify-center text-neutral-400">Loading...</div>}>
-          <InventoryProvider>
-            <Suspense fallback={null}>{children}</Suspense>
-          </InventoryProvider>
+          <AuthProvider>
+            <InventoryProvider>
+              <Suspense fallback={null}>{children}</Suspense>
+            </InventoryProvider>
+          </AuthProvider>
         </ClientOnly>
         <Analytics />
       </body>

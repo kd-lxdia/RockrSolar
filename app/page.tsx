@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 import { Sidebar } from "@/components/sidebar"
 import { RightSidebar } from "@/components/right-sidebar"
 import { KPIs } from "@/components/kpis"
@@ -16,6 +18,14 @@ export default function Page() {
   const [openTable, setOpenTable] = useState<null | "in" | "out" | "total">(null)
   const [currentTime, setCurrentTime] = useState<string>("")
   const inventory = useInventory()
+  const { role, isLoading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!isLoading && !role) {
+      router.push("/login")
+    }
+  }, [role, isLoading, router])
 
   useEffect(() => {
     // Update time on client side only to avoid hydration mismatch
@@ -28,9 +38,22 @@ export default function Page() {
     return () => clearInterval(interval)
   }, [])
 
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return (
+      <div className="h-screen bg-[#0b0c10] flex items-center justify-center">
+        <div className="text-neutral-400">Loading...</div>
+      </div>
+    )
+  }
+
+  // Don't render dashboard if not logged in
+  if (!role) {
+    return null
+  }
+
   return (
-    <div className="h-screen bg-[#0b0c10] text-neutral-200">
-      {/* Header */}
+    <div className="h-screen bg-[#0b0c10] text-neutral-200">{/* Header */}
       <header className="hidden md:flex items-center gap-3 px-6 h-12 border-b border-neutral-800 bg-[#0e0f12]">
         <div className="w-64 shrink-0" />
         <div className="text-[11px] uppercase tracking-[0.25em] text-neutral-400">Overview</div>

@@ -3,12 +3,14 @@
 import React, { useMemo, useState } from "react"
 import type { InventoryEvent } from "@/lib/inventory-store-postgres"
 import { useInventory } from "@/lib/inventory-store-postgres"
+import { useAuth } from "@/lib/auth-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 type Mode = "in" | "out" | "total"
 
 export function HistoryTable({ mode }: { mode: Mode }) {
   const inventory = useInventory()
+  const { role } = useAuth()
   const [search, setSearch] = useState("")
 
   const rows = useMemo(() => {
@@ -78,7 +80,7 @@ export function HistoryTable({ mode }: { mode: Mode }) {
                 <TableHead className="text-neutral-400">Quantity</TableHead>
                 <TableHead className="text-neutral-400">Source</TableHead>
                 <TableHead className="text-neutral-400">Supplier</TableHead>
-                <TableHead className="text-neutral-400">Rate</TableHead>
+                {role === "admin" && <TableHead className="text-neutral-400">Rate</TableHead>}
                 <TableHead className="text-neutral-400">Date</TableHead>
               </>
             )}
@@ -98,7 +100,7 @@ export function HistoryTable({ mode }: { mode: Mode }) {
                   </TableCell>
                   <TableCell className="text-neutral-300">{(r as InventoryEvent).source}</TableCell>
                   <TableCell className="text-neutral-300">{(r as InventoryEvent).supplier}</TableCell>
-                  <TableCell className="text-neutral-300">{(r as InventoryEvent).rate}</TableCell>
+                  {role === "admin" && <TableCell className="text-neutral-300">{(r as InventoryEvent).rate}</TableCell>}
                   <TableCell className="text-neutral-300">
                     {new Date((r as InventoryEvent).timestamp).toLocaleString()}
                   </TableCell>
