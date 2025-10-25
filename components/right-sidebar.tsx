@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import {
   X as CloseIcon,
   ChevronLeft,
 } from "lucide-react";
 import { LowStockAlert } from "@/components/LowStockAlert";
-import { useInventory } from "@/lib/inventory-store-postgres";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 function useClock() {
@@ -33,7 +32,6 @@ function formatTime(d: Date) {
 
 export function RightSidebar() {
   const now = useClock();
-  const inventory = useInventory();
   const [isMinimized, setIsMinimized] = useState(false);
 
   const [locationText, setLocationText] = useState<string>("");
@@ -60,19 +58,6 @@ export function RightSidebar() {
       mounted = false;
     };
   }, []);
-
-  // Future: Filter today's notifications if needed
-  // const todaysNotifications = useMemo(() => {
-  //   if (!now) return [];
-  //   const start = new Date(now);
-  //   start.setHours(0, 0, 0, 0);
-  //   const end = new Date(start);
-  //   end.setDate(start.getDate() + 1);
-  //   return inventory.notifications.filter((notification) => {
-  //     const notificationDate = new Date(notification.timestamp);
-  //     return notificationDate >= start && notificationDate < end;
-  //   });
-  // }, [now, inventory.notifications]);
 
   if (isMinimized) {
     return (
