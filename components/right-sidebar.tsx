@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { LowStockAlert } from "@/components/LowStockAlert";
 import { useInventory } from "@/lib/inventory-store-postgres";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 function useClock() {
@@ -62,21 +61,18 @@ export function RightSidebar() {
     };
   }, []);
 
-  // show only today's notifications
-  const todaysNotifications = useMemo(() => {
-    if (!now) return [];
-    
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 1);
-
-    // Filter notifications from today
-    return inventory.notifications.filter((notification) => {
-      const notificationDate = new Date(notification.timestamp);
-      return notificationDate >= start && notificationDate < end;
-    });
-  }, [now, inventory.notifications]);
+  // Future: Filter today's notifications if needed
+  // const todaysNotifications = useMemo(() => {
+  //   if (!now) return [];
+  //   const start = new Date(now);
+  //   start.setHours(0, 0, 0, 0);
+  //   const end = new Date(start);
+  //   end.setDate(start.getDate() + 1);
+  //   return inventory.notifications.filter((notification) => {
+  //     const notificationDate = new Date(notification.timestamp);
+  //     return notificationDate >= start && notificationDate < end;
+  //   });
+  // }, [now, inventory.notifications]);
 
   if (isMinimized) {
     return (
