@@ -19,6 +19,24 @@ export interface InventoryEvent {
   kind: "IN" | "OUT";
 }
 
+export interface BOMRecord {
+  id: string;
+  name: string;
+  project_in_kw: number;
+  wattage_of_panels: number;
+  table_option: string;
+  phase: "SINGLE" | "TRIPLE";
+  ac_wire: string;
+  dc_wire: string;
+  la_wire: string;
+  earthing_wire: string;
+  no_of_legs: number;
+  front_leg: string;
+  back_leg: string;
+  roof_design: string;
+  created_at: number;
+}
+
 // Initialize database tables
 export async function initDatabase() {
   if (shouldUseMockDb()) {
@@ -41,6 +59,7 @@ export async function initDatabase() {
         id SERIAL PRIMARY KEY,
         item_name VARCHAR(255) NOT NULL,
         type_name VARCHAR(255) NOT NULL,
+        hsn_code VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(item_name, type_name)
       );
@@ -87,6 +106,30 @@ export async function initDatabase() {
     await sql`CREATE INDEX IF NOT EXISTS idx_events_kind ON events(kind);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_types_item ON types(item_name);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_suppliers_source ON suppliers(source_name);`;
+
+    // Create BOM table
+    await sql`
+      CREATE TABLE IF NOT EXISTS bom (
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        project_in_kw DECIMAL(10, 2) NOT NULL,
+        wattage_of_panels DECIMAL(10, 2) NOT NULL,
+        table_option VARCHAR(255) NOT NULL,
+        phase VARCHAR(10) NOT NULL CHECK (phase IN ('SINGLE', 'TRIPLE')),
+        ac_wire VARCHAR(255) NOT NULL,
+        dc_wire VARCHAR(255) NOT NULL,
+        la_wire VARCHAR(255) NOT NULL,
+        earthing_wire VARCHAR(255) NOT NULL,
+        no_of_legs INTEGER NOT NULL,
+        front_leg VARCHAR(255) NOT NULL,
+        back_leg VARCHAR(255) NOT NULL,
+        roof_design VARCHAR(255) NOT NULL,
+        created_at BIGINT NOT NULL
+      );
+    `;
+    
+    await sql`CREATE INDEX IF NOT EXISTS idx_bom_name ON bom(name);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_bom_created_at ON bom(created_at);`;
 
     console.log('Database tables initialized successfully');
     return { success: true };
@@ -138,18 +181,59 @@ export async function getTypesForItem(itemName: string) {
   return rows.map(row => row.type_name);
 }
 
-export async function addType(itemName: string, typeName: string) {
+export async function addType(itemName: string, typeName: string, hsnCode?: string) {
   if (shouldUseMockDb()) return mockDb.addType(itemName, typeName);
   await sql`
-    INSERT INTO types (item_name, type_name) 
-    VALUES (${itemName}, ${typeName}) 
-    ON CONFLICT (item_name, type_name) DO NOTHING
+    INSERT INTO types (item_name, type_name, hsn_code) 
+    VALUES (${itemName}, ${typeName}, ${hsnCode || null}) 
+    ON CONFLICT (item_name, type_name) DO UPDATE SET hsn_code = ${hsnCode || null}
   `;
 }
 
 export async function removeType(itemName: string, typeName: string) {
   if (shouldUseMockDb()) return mockDb.removeType(itemName, typeName);
   await sql`DELETE FROM types WHERE item_name = ${itemName} AND type_name = ${typeName}`;
+}
+
+// HSN Code functions
+export async function getHSNForType(itemName: string, typeName: string): Promise<string | null> {
+  if (shouldUseMockDb()) return null;
+  try {
+    const { rows } = await sql`
+      SELECT hsn_code FROM types 
+      WHERE item_name = ${itemName} AND type_name = ${typeName}
+    `;
+    return rows[0]?.hsn_code || null;
+  } catch (error) {
+    console.error('Error getting HSN code:', error);
+    return null;
+  }
+}
+
+export async function getAllTypeHSNMappings() {
+  if (shouldUseMockDb()) return [];
+  try {
+    const { rows } = await sql`
+      SELECT item_name, type_name, hsn_code 
+      FROM types 
+      WHERE hsn_code IS NOT NULL
+      ORDER BY item_name, type_name
+    `;
+    return rows;
+  } catch (error) {
+    console.error('Error getting all HSN mappings:', error);
+    return [];
+  }
+}
+
+export async function updateTypeHSN(itemName: string, typeName: string, hsnCode: string) {
+  if (shouldUseMockDb()) return;
+  await sql`
+    INSERT INTO types (item_name, type_name, hsn_code)
+    VALUES (${itemName}, ${typeName}, ${hsnCode})
+    ON CONFLICT (item_name, type_name) 
+    DO UPDATE SET hsn_code = ${hsnCode}
+  `;
 }
 
 // Sources CRUD
@@ -242,61 +326,70 @@ export async function seedInitialData() {
       return;
     }
 
-    // Add sample items
-    const sampleItems = ['Laptop', 'Mouse', 'Keyboard', 'Monitor', 'Headphones'];
+    // Add sample solar-related items
+    const sampleItems = ['Solar Panels', 'Inverters', 'Batteries', 'Wires', 'Mounting Structure'];
     for (const item of sampleItems) {
       await addItem(item);
     }
 
     // Add sample types
-    await addType('Laptop', 'Dell');
-    await addType('Laptop', 'HP');
-    await addType('Mouse', 'Wireless');
-    await addType('Mouse', 'Wired');
+    await addType('Solar Panels', '550W Mono');
+    await addType('Solar Panels', '450W Poly');
+    await addType('Inverters', '5KW On-Grid');
+    await addType('Inverters', '10KW Hybrid');
+    await addType('Wires', 'AC Wire 4mm²');
+    await addType('Wires', 'DC Wire 6mm²');
+    await addType('Wires', 'Earthing Wire 16mm²');
 
     // Add sample sources
-    const sampleSources = ['Warehouse A', 'Warehouse B', 'Supplier Direct'];
+    const sampleSources = ['Main Warehouse', 'Site Storage', 'Supplier Direct'];
     for (const source of sampleSources) {
       await addSource(source);
     }
 
     // Add sample suppliers
-    await addSupplier('Warehouse A', 'TechCorp');
-    await addSupplier('Warehouse A', 'GlobalSupply');
-    await addSupplier('Warehouse B', 'LocalVendor');
+    await addSupplier('Main Warehouse', 'Solar Tech India');
+    await addSupplier('Main Warehouse', 'Green Energy Corp');
+    await addSupplier('Supplier Direct', 'Direct Solar Imports');
 
-    // Add sample events
-    const sampleEvents: InventoryEvent[] = [
-      {
-        id: `evt-${Date.now()}-1`,
-        timestamp: Date.now() - 86400000,
-        item: 'Laptop',
-        type: 'Dell',
-        qty: 10,
-        rate: 50000,
-        source: 'Warehouse A',
-        supplier: 'TechCorp',
-        kind: 'IN'
-      },
-      {
-        id: `evt-${Date.now()}-2`,
-        timestamp: Date.now() - 43200000,
-        item: 'Mouse',
-        type: 'Wireless',
-        qty: 5,
-        rate: 500,
-        source: 'Warehouse B',
-        supplier: 'LocalVendor',
-        kind: 'OUT'
-      }
-    ];
+    // No sample events - let users add their own data
+    // This prevents confusion with dummy data
 
-    for (const event of sampleEvents) {
-      await addEvent(event);
-    }
+    console.log('Sample data seeded successfully - ready for real inventory');
 
     console.log('Sample data seeded successfully');
   } catch (error) {
     console.error('Error seeding data:', error);
   }
+}
+
+// BOM CRUD
+export async function getBOMRecords() {
+  if (shouldUseMockDb()) {
+    return mockDb.getBOMRecords();
+  }
+  const result = await sql`SELECT * FROM bom ORDER BY created_at DESC;`;
+  return result.rows as BOMRecord[];
+}
+
+export async function addBOMRecord(bom: BOMRecord) {
+  if (shouldUseMockDb()) {
+    return mockDb.addBOMRecord(bom);
+  }
+  await sql`
+    INSERT INTO bom (id, name, project_in_kw, wattage_of_panels, table_option, phase, 
+                     ac_wire, dc_wire, la_wire, earthing_wire, no_of_legs, 
+                     front_leg, back_leg, roof_design, created_at)
+    VALUES (${bom.id}, ${bom.name}, ${bom.project_in_kw}, ${bom.wattage_of_panels}, 
+            ${bom.table_option}, ${bom.phase}, ${bom.ac_wire}, ${bom.dc_wire}, 
+            ${bom.la_wire}, ${bom.earthing_wire}, ${bom.no_of_legs}, 
+            ${bom.front_leg}, ${bom.back_leg}, ${bom.roof_design}, ${bom.created_at});
+  `;
+}
+
+export async function deleteBOMRecord(id: string) {
+  if (shouldUseMockDb()) {
+    return mockDb.deleteBOMRecord(id);
+  }
+  await sql`DELETE FROM bom WHERE id = ${id};`;
 }

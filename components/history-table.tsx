@@ -79,7 +79,7 @@ export function HistoryTable({ mode }: { mode: Mode }) {
                 <TableHead className="text-neutral-400">Type</TableHead>
                 <TableHead className="text-neutral-400">Quantity</TableHead>
                 <TableHead className="text-neutral-400">Source</TableHead>
-                <TableHead className="text-neutral-400">Supplier</TableHead>
+                <TableHead className="text-neutral-400">Invoice</TableHead>
                 {role === "admin" && <TableHead className="text-neutral-400">Rate</TableHead>}
                 <TableHead className="text-neutral-400">Date</TableHead>
               </>

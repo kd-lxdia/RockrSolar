@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, ArrowDownLeft, ArrowUpRight, Boxes, LogOut, User } from "lucide-react"
+import { Home, ArrowDownLeft, ArrowUpRight, Boxes, LogOut, User, FileText, AlertTriangle, Settings } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
@@ -10,9 +10,12 @@ const nav = [
   { label: "Stock In", icon: ArrowUpRight },
   { label: "Stock Out", icon: ArrowDownLeft },
   { label: "Total Stock Available", icon: Boxes },
+  { label: "Stock Alerts", icon: AlertTriangle },
+  { label: "BOM Generation", icon: FileText },
+  { label: "Settings", icon: Settings },
 ]
 
-export function Sidebar({ onSelect }: { onSelect?: (key: "home" | "in" | "out" | "total") => void }) {
+export function Sidebar({ onSelect }: { onSelect?: (key: "home" | "in" | "out" | "total" | "alerts" | "bom" | "settings") => void }) {
   const { username, role, logout } = useAuth();
   
   return (
@@ -32,6 +35,9 @@ export function Sidebar({ onSelect }: { onSelect?: (key: "home" | "in" | "out" |
                   if (n.label === "Home") onSelect("home")
                   else if (n.label === "Stock In") onSelect("in")
                   else if (n.label === "Stock Out") onSelect("out")
+                  else if (n.label === "Stock Alerts") onSelect("alerts")
+                  else if (n.label === "BOM Generation") onSelect("bom")
+                  else if (n.label === "Settings") onSelect("settings")
                   else onSelect("total")
                 }}
                 className={cn(

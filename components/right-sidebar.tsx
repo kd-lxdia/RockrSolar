@@ -5,7 +5,10 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   X as CloseIcon,
+  ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
+import { LowStockAlert } from "@/components/LowStockAlert";
 import { useInventory } from "@/lib/inventory-store-postgres";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -35,6 +38,7 @@ function formatTime(d: Date) {
 export function RightSidebar() {
   const now = useClock();
   const inventory = useInventory();
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const [locationText, setLocationText] = useState<string>("");
 
@@ -77,8 +81,31 @@ export function RightSidebar() {
     });
   }, [now, inventory.notifications]);
 
+  if (isMinimized) {
+    return (
+      <div className="fixed right-0 top-1/2 -translate-y-1/2 z-40">
+        <button
+          onClick={() => setIsMinimized(false)}
+          className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-l-lg shadow-lg transition-all hover:pr-4"
+          title="Show sidebar"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <aside className="w-full md:w-80 bg-[#0e0f12] border-l border-neutral-800 text-neutral-200 flex flex-col">
+    <aside className="hidden lg:flex w-full md:w-80 bg-[#0e0f12] border-l border-neutral-800 text-neutral-200 flex-col relative h-full overflow-y-auto shrink-0">
+      {/* Close Button */}
+      <button
+        onClick={() => setIsMinimized(true)}
+        className="absolute top-4 right-4 z-10 p-1.5 hover:bg-neutral-800 rounded transition-colors"
+        title="Hide sidebar"
+      >
+        <CloseIcon className="h-4 w-4 text-neutral-400 hover:text-neutral-200" />
+      </button>
+
       <div className="p-4 border-b border-neutral-800">
         <div className="text-[10px] uppercase tracking-widest text-neutral-400">
           {now ? now.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase() : "LOADING..."}
@@ -93,55 +120,20 @@ export function RightSidebar() {
         </div>
       </div>
 
-      <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-800">
+      <div className="px-4 py-3 border-b border-neutral-800">
         <div className="text-[11px] uppercase tracking-widest text-blue-400">
-          Notifications
+          Inventory Alerts
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={inventory.clearNotifications}
-          className="bg-neutral-900 text-neutral-300 hover:bg-neutral-800"
-        >
-          Clear All
-        </Button>
+        <div className="text-xs text-neutral-500 mt-1">
+          Low stock & missing items
+        </div>
       </div>
 
       <ScrollArea className="flex-1">
-        <ul className="p-3 space-y-2">
-          {todaysNotifications.map((n) => (
-            <li
-              key={n.id}
-              className="bg-neutral-900/60 border border-neutral-800 rounded-md p-3 flex items-center gap-3"
-            >
-              {n.kind === "in" ? (
-                <ArrowUpRight size={16} className="text-green-400 shrink-0" />
-              ) : (
-                <ArrowDownRight size={16} className="text-orange-400 shrink-0" />
-              )}
-              <div className="flex-1">
-                <div className="text-sm text-neutral-100">{n.text}</div>
-                <div className="text-[11px] text-neutral-500">
-                  {new Date().toLocaleString()}
-                </div>
-              </div>
-              <button
-                aria-label="Clear notification"
-                onClick={() => {
-                  // Individual clear not implemented in simple store
-                  // You could enhance the store to support this
-                }}
-                className="p-1 rounded hover:bg-neutral-800 text-neutral-400"
-                title="Clear"
-              >
-                <CloseIcon size={16} />
-              </button>
-            </li>
-          ))}
-          {todaysNotifications.length === 0 && (
-            <li className="text-xs text-neutral-500 px-1">No notifications</li>
-          )}
-        </ul>
+        <div className="p-3">
+          {/* Render low / missing stocks in the sidebar */}
+          <LowStockAlert />
+        </div>
       </ScrollArea>
 
       <div className="px-4 py-3 border-t border-neutral-800">

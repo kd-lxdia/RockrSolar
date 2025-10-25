@@ -16,14 +16,14 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { itemName, typeName } = await request.json();
+    const { itemName, typeName, hsnCode } = await request.json();
     if (!itemName || !typeName) {
       return NextResponse.json(
         { success: false, error: 'itemName and typeName are required' },
         { status: 400 }
       );
     }
-    await addType(itemName, typeName);
+    await addType(itemName, typeName, hsnCode);
     return NextResponse.json({ success: true, message: 'Type added successfully' });
   } catch (error) {
     console.error('Error adding type:', error);

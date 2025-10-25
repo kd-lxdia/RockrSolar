@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Improvements - Quick Guide</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f12 0%, #1a1a1f 100%);
+            color: #e5e5e5;
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #f97316;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-align: center;
+        }
+        .subtitle {
+            color: #9ca3af;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin: 30px 0;
+        }
+        .card {
+            background: rgba(30, 30, 35, 0.8);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .card h2 {
+            color: #fb923c;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card h3 {
+            color: #60a5fa;
+            margin: 20px 0 10px;
+            font-size: 1.2em;
+        }
+        .feature-list {
+            list-style: none;
+            margin: 15px 0;
+        }
+        .feature-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        .icon {
+            font-size: 1.5em;
+            min-width: 30px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin: 5px 5px 5px 0;
+        }
+        .badge-new { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+        .badge-fixed { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .badge-improved { background: rgba(168, 85, 247, 0.2); color: #a78bfa; }
+        .alert-demo {
+            background: linear-gradient(135deg, rgba(251, 146, 60, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%);
+            border: 1px solid rgba(251, 146, 60, 0.5);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .alert-item {
+            background: rgba(30, 30, 35, 0.5);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-demo {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 5px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-orange { background: #ea580c; color: white; }
+        .btn-orange:hover { background: #c2410c; }
+        .btn-green { background: #16a34a; color: white; }
+        .btn-green:hover { background: #15803d; }
+        .btn-red { background: #dc2626; color: white; }
+        .btn-red:hover { background: #b91c1c; }
+        .workflow {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .workflow-step {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+        }
+        .workflow-number {
+            background: #3b82f6;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        .workflow-arrow {
+            text-align: center;
+            color: #3b82f6;
+            font-size: 1.5em;
+            margin: 10px 0;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .comparison-box {
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid;
+        }
+        .comparison-before {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: #dc2626;
+        }
+        .comparison-after {
+            background: rgba(34, 197, 94, 0.1);
+            border-color: #16a34a;
+        }
+        .comparison h4 {
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+        .code {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid #374151;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #10b981;
+        }
+        .highlight {
+            background: linear-gradient(135deg, rgba(251, 146, 60, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%);
+            border-left: 4px solid #f97316;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .table-demo {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .table-demo th, .table-demo td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .table-demo th {
+            background: rgba(0, 0, 0, 0.3);
+            color: #fb923c;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 Dashboard Improvements</h1>
+        <p class="subtitle">All New Features & Fixes at a Glance</p>
+
+        <div class="grid">
+            <!-- Card 1: Structure Improvements -->
+            <div class="card">
+                <h2>🏗️ Website Structure</h2>
+                <span class="badge badge-improved">IMPROVED</span>
+                
+                <h3>Better Navigation</h3>
+                <ul class="feature-list">
+                    <li>
+                        <span class="icon">📍</span>
+                        <div>
+                            <strong>Dynamic Header</strong><br>
+                            Shows where you are: Overview, BOM Generation, Stock In/Out
+                        </div>
+                    </li>
+                    <li>
+                        <span class="icon">🏠</span>
+                        <div>
+                            <strong>Clean Home Page</strong><br>
+                            KPIs → Alerts → Charts → Quick Actions
+                        </div>
+                    </li>
+                    <li>
+                        <span class="icon">⚡</span>
+                        <div>
+                            <strong>Quick Actions</strong><br>
+                            One-click access to common tasks
+                        </div>
+                    </li>
+                </ul>
+
+                <h3>Quick Action Buttons</h3>
+                <div style="margin: 15px 0;">
+                    <button class="btn-demo" style="background: #3b82f6;">📊 Export History</button>
+                    <button class="btn-demo" style="background: #16a34a;">📦 Export Stock</button>
+                    <button class="btn-demo" style="background: #10b981;">➕ Add Stock</button>
+                    <button class="btn-demo" style="background: #f97316;">➖ Stock Out</button>
+                    <button class="btn-demo" style="background: #8b5cf6;">📋 Create BOM</button>
+                </div>
+            </div>
+
+            <!-- Card 2: Missing Stock Alerts -->
+            <div class="card">
+                <h2>🚨 Missing Stock Alerts</h2>
+                <span class="badge badge-fixed">FIXED</span>
+                <span class="badge badge-new">NEW</span>
+                
+                <h3>3 Alert Levels</h3>
+                <div class="alert-demo">
+                    <div class="alert-item" style="border-color: #dc2626;">
+                        <div>
+                            <div style="font-weight: 600; color: #fef2f2;">🔴 Wires - AC Wire 4mm²</div>
+                            <div style="font-size: 0.85em; color: #fb923c;">Required by: ABC Solar</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color: #ef4444; font-weight: 600;">Missing</div>
+                            <div style="font-size: 0.85em; color: #9ca3af;">Add now</div>
+                        </div>
+                    </div>
+                    <div class="alert-item" style="border-color: #dc2626;">
+                        <div>
+                            <div style="font-weight: 600; color: #fef2f2;">🔴 Solar Panels - 550W</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color: #ef4444; font-weight: 600;">3 left</div>
+                            <div style="font-size: 0.85em; color: #9ca3af;">Critical</div>
+                        </div>
+                    </div>
+                    <div class="alert-item" style="border-color: #f97316;">
+                        <div>
+                            <div style="font-weight: 600; color: #fef2f2;">🟠 Inverters - 5KW</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color: #fb923c; font-weight: 600;">8 left</div>
+                            <div style="font-size: 0.85em; color: #9ca3af;">Low stock</div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>What's Detected</h3>
+                <ul class="feature-list">
+                    <li><span class="icon">✅</span> Items not in inventory</li>
+                    <li><span class="icon">✅</span> Items with 0 quantity</li>
+                    <li><span class="icon">✅</span> Negative stock (over-allocated)</li>
+                    <li><span class="icon">✅</span> BOM requirements vs inventory</li>
+                    <li><span class="icon">✅</span> Low stock (≤10 units)</li>
+                </ul>
+            </div>
+
+            <!-- Card 3: Stock Out Button -->
+            <div class="card">
+                <h2>📦 Stock Out Button</h2>
+                <span class="badge badge-new">NEW FEATURE</span>
+                
+                <h3>One-Click Material Deduction</h3>
+                <p style="margin: 15px 0; color: #9ca3af;">
+                    No more manual entry! Click the Stock Out button on any BOM to automatically deduct all materials from inventory.
+                </p>
+
+                <div class="workflow">
+                    <div class="workflow-step">
+                        <div class="workflow-number">1</div>
+                        <div>Find BOM in table</div>
+                    </div>
+                    <div class="workflow-arrow">↓</div>
+                    <div class="workflow-step">
+                        <div class="workflow-number">2</div>
+                        <div>Click orange 📦 icon</div>
+                    </div>
+                    <div class="workflow-arrow">↓</div>
+                    <div class="workflow-step">
+                        <div class="workflow-number">3</div>
+                        <div>Review materials list</div>
+                    </div>
+                    <div class="workflow-arrow">↓</div>
+                    <div class="workflow-step">
+                        <div class="workflow-number">4</div>
+                        <div>Confirm deduction</div>
+                    </div>
+                    <div class="workflow-arrow">↓</div>
+                    <div class="workflow-step">
+                        <div class="workflow-number">5</div>
+                        <div>✅ All materials deducted!</div>
+                    </div>
+                </div>
+
+                <h3>BOM Table Actions</h3>
+                <div style="margin: 15px 0;">
+                    <button class="btn-demo btn-orange" title="Stock Out">📦 Stock Out</button>
+                    <button class="btn-demo btn-green" title="Download">📥 Download</button>
+                    <button class="btn-demo btn-red" title="Delete">🗑️ Delete</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- What Gets Deducted -->
+        <div class="card" style="margin: 30px 0;">
+            <h2>📋 What Gets Deducted</h2>
+            <p style="margin: 15px 0; color: #9ca3af;">
+                When you click Stock Out, the system automatically calculates and deducts:
+            </p>
+
+            <table class="table-demo">
+                <thead>
+                    <tr>
+                        <th>Material</th>
+                        <th>How It's Calculated</th>
+                        <th>Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>AC Wire</strong></td>
+                        <td>1 unit of specified type</td>
+                        <td>4mm²</td>
+                    </tr>
+                    <tr>
+                        <td><strong>DC Wire</strong></td>
+                        <td>1 unit of specified type</td>
+                        <td>6mm²</td>
+                    </tr>
+                    <tr>
+                        <td><strong>LA Wire</strong></td>
+                        <td>1 unit of specified type</td>
+                        <td>10mm²</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Earthing Wire</strong></td>
+                        <td>1 unit of specified type</td>
+                        <td>16mm²</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Solar Panels</strong></td>
+                        <td>ceil(Project KW × 1000 ÷ Panel Wattage)</td>
+                        <td>5KW ÷ 550W = 9 panels</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Inverter</strong></td>
+                        <td>1 unit (KW + Phase)</td>
+                        <td>5KW SINGLE</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Structure Legs</strong></td>
+                        <td>Number of legs (split front/back)</td>
+                        <td>4 legs total</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Before vs After -->
+        <div class="card" style="margin: 30px 0;">
+            <h2>📊 Before vs After</h2>
+            <div class="comparison">
+                <div class="comparison-box comparison-before">
+                    <h4>❌ BEFORE</h4>
+                    <ul style="margin-top: 10px; padding-left: 20px;">
+                        <li>Missing items not shown</li>
+                        <li>Manual stock out entry</li>
+                        <li>No BOM-inventory link</li>
+                        <li>Cluttered navigation</li>
+                        <li>No quick actions</li>
+                    </ul>
+                </div>
+                <div class="comparison-box comparison-after">
+                    <h4>✅ AFTER</h4>
+                    <ul style="margin-top: 10px; padding-left: 20px;">
+                        <li>Missing items flagged</li>
+                        <li>One-click stock out</li>
+                        <li>Smart BOM alerts</li>
+                        <li>Clean navigation</li>
+                        <li>Quick action buttons</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Try It Now -->
+        <div class="highlight">
+            <h2 style="margin-bottom: 15px;">🚀 Try It Now!</h2>
+            <div style="font-size: 1.1em;">
+                <p><strong>1. Open Dashboard:</strong> <a href="http://localhost:3003" style="color: #60a5fa;">http://localhost:3003</a></p>
+                <p><strong>2. Login:</strong> <span class="code">admin@rockersolar.com</span> / <span class="code">admin123</span></p>
+                <p><strong>3. Create a BOM:</strong> Click "BOM Generation" → Add BOM</p>
+                <p><strong>4. See Alerts:</strong> Go to Home → Missing items appear!</p>
+                <p><strong>5. Stock Out:</strong> Click orange 📦 button → Confirm → Done!</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; margin-top: 50px; padding: 20px; color: #6b7280;">
+            <p>✨ All features tested and working!</p>
+            <p style="margin-top: 10px;">Build Status: <span style="color: #22c55e; font-weight: 600;">✓ SUCCESS</span></p>
+        </div>
+    </div>
+</body>
+</html>

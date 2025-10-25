@@ -13,54 +13,38 @@ export interface InventoryEvent {
   kind: "IN" | "OUT";
 }
 
+export interface BOMRecord {
+  id: string;
+  name: string;
+  project_in_kw: number;
+  wattage_of_panels: number;
+  table_option: string;
+  phase: "SINGLE" | "TRIPLE";
+  ac_wire: string;
+  dc_wire: string;
+  la_wire: string;
+  earthing_wire: string;
+  no_of_legs: number;
+  front_leg: string;
+  back_leg: string;
+  roof_design: string;
+  created_at: number;
+}
+
 // In-memory storage
-let mockItems: string[] = ['Laptop', 'Mouse', 'Keyboard', 'Monitor', 'Headphones'];
+let mockItems: string[] = ['Solar Panels', 'Inverters', 'Batteries', 'Wires', 'Mounting Structure'];
 const mockTypes: Record<string, string[]> = {
-  'Laptop': ['Dell', 'HP', 'Lenovo'],
-  'Mouse': ['Wireless', 'Wired'],
-  'Keyboard': ['Mechanical', 'Membrane']
+  'Solar Panels': ['550W Mono', '450W Poly'],
+  'Inverters': ['5KW On-Grid', '10KW Hybrid'],
+  'Wires': ['AC Wire 4mm²', 'DC Wire 6mm²', 'Earthing Wire 16mm²']
 };
-let mockSources: string[] = ['Warehouse A', 'Warehouse B', 'Supplier Direct'];
+let mockSources: string[] = ['Main Warehouse', 'Site Storage', 'Supplier Direct'];
 const mockSuppliers: Record<string, string[]> = {
-  'Warehouse A': ['TechCorp', 'GlobalSupply'],
-  'Warehouse B': ['LocalVendor'],
-  'Supplier Direct': ['DirectImport']
+  'Main Warehouse': ['Solar Tech India', 'Green Energy Corp'],
+  'Supplier Direct': ['Direct Solar Imports']
 };
-let mockEvents: InventoryEvent[] = [
-  {
-    id: 'evt-1',
-    timestamp: Date.now() - 86400000,
-    item: 'Laptop',
-    type: 'Dell',
-    qty: 10,
-    rate: 50000,
-    source: 'Warehouse A',
-    supplier: 'TechCorp',
-    kind: 'IN'
-  },
-  {
-    id: 'evt-2',
-    timestamp: Date.now() - 43200000,
-    item: 'Mouse',
-    type: 'Wireless',
-    qty: 5,
-    rate: 500,
-    source: 'Warehouse B',
-    supplier: 'LocalVendor',
-    kind: 'OUT'
-  },
-  {
-    id: 'evt-3',
-    timestamp: Date.now() - 21600000,
-    item: 'Keyboard',
-    type: 'Mechanical',
-    qty: 15,
-    rate: 2000,
-    source: 'Warehouse A',
-    supplier: 'TechCorp',
-    kind: 'IN'
-  }
-];
+// Start with empty events - users add their own data
+let mockEvents: InventoryEvent[] = [];
 
 export async function initDatabase() {
   console.log('Using mock database - no PostgreSQL connection required for local development');
@@ -162,4 +146,19 @@ export async function addEvent(event: InventoryEvent) {
 
 export async function deleteEvent(id: string) {
   mockEvents = mockEvents.filter(e => e.id !== id);
+}
+
+// BOM storage
+let mockBOM: BOMRecord[] = [];
+
+export async function getBOMRecords() {
+  return [...mockBOM].sort((a, b) => b.created_at - a.created_at);
+}
+
+export async function addBOMRecord(bom: BOMRecord) {
+  mockBOM.push(bom);
+}
+
+export async function deleteBOMRecord(id: string) {
+  mockBOM = mockBOM.filter(b => b.id !== id);
 }

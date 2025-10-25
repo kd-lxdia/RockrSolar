@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Low Stock Alert Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f12 0%, #1a1a1f 100%);
+            color: #e5e5e5;
+            padding: 40px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(30, 30, 35, 0.8);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        h1 {
+            color: #f97316;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #9ca3af;
+            margin-bottom: 30px;
+        }
+        .alert-demo {
+            background: linear-gradient(135deg, rgba(251, 146, 60, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%);
+            border: 1px solid rgba(251, 146, 60, 0.5);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .alert-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .alert-icon {
+            width: 32px;
+            height: 32px;
+            background: rgba(251, 146, 60, 0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fb923c;
+            font-size: 20px;
+        }
+        .alert-title {
+            font-weight: 600;
+            color: #fef3c7;
+        }
+        .alert-subtitle {
+            font-size: 12px;
+            color: rgba(254, 243, 199, 0.7);
+        }
+        .alert-item {
+            background: rgba(30, 30, 35, 0.5);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .alert-item.missing {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.7);
+        }
+        .item-left {
+            display: flex;
+            gap: 10px;
+            flex: 1;
+        }
+        .item-icon {
+            color: #ef4444;
+            font-size: 16px;
+        }
+        .item-name {
+            font-weight: 500;
+            color: #fef2f2;
+        }
+        .item-type {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        .item-required {
+            font-size: 10px;
+            color: rgba(251, 146, 60, 0.7);
+            margin-top: 4px;
+        }
+        .item-right {
+            text-align: right;
+        }
+        .item-status {
+            font-weight: 600;
+            color: #ef4444;
+            font-size: 14px;
+        }
+        .item-action {
+            font-size: 12px;
+            color: #fca5a5;
+        }
+        .steps {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .step {
+            margin: 15px 0;
+            padding-left: 30px;
+            position: relative;
+        }
+        .step-number {
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #3b82f6;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .code {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid #374151;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #10b981;
+        }
+        .button {
+            display: inline-block;
+            background: #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: background 0.2s;
+        }
+        .button:hover {
+            background: #2563eb;
+        }
+        .note {
+            background: rgba(234, 179, 8, 0.1);
+            border-left: 4px solid #eab308;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .note-title {
+            color: #fde047;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 Low Stock Alert - Live Demo</h1>
+        <p class="subtitle">See how the intelligent alert system works</p>
+
+        <div class="note">
+            <div class="note-title">💡 Why You Don't See It Yet</div>
+            The alert is <strong>smart</strong> - it only appears when:
+            <ul style="margin: 10px 0;">
+                <li>BOM requires wires that are missing/low in inventory</li>
+                <li>Inventory items drop below 10 units</li>
+            </ul>
+            Your database is currently clean with no alerts needed. <strong>This is good!</strong>
+        </div>
+
+        <h2 style="color: #fb923c; margin-top: 30px;">This is What You'll See:</h2>
+        
+        <div class="alert-demo">
+            <div class="alert-header">
+                <div class="alert-icon">⚠️</div>
+                <div>
+                    <div class="alert-title">Low Stock Alert</div>
+                    <div class="alert-subtitle">3 items need attention</div>
+                </div>
+            </div>
+
+            <div class="alert-item missing">
+                <div class="item-left">
+                    <div class="item-icon">🔴</div>
+                    <div>
+                        <div class="item-name">Wires</div>
+                        <div class="item-type">AC Wire 4mm²</div>
+                        <div class="item-required">Required by: ABC Solar Project</div>
+                    </div>
+                </div>
+                <div class="item-right">
+                    <div class="item-status">Missing</div>
+                    <div class="item-action">Add to inventory</div>
+                </div>
+            </div>
+
+            <div class="alert-item missing">
+                <div class="item-left">
+                    <div class="item-icon">🔴</div>
+                    <div>
+                        <div class="item-name">Wires</div>
+                        <div class="item-type">DC Wire 6mm²</div>
+                        <div class="item-required">Required by: ABC Solar Project</div>
+                    </div>
+                </div>
+                <div class="item-right">
+                    <div class="item-status">Missing</div>
+                    <div class="item-action">Add to inventory</div>
+                </div>
+            </div>
+
+            <div class="alert-item">
+                <div class="item-left">
+                    <div class="item-icon">🟠</div>
+                    <div>
+                        <div class="item-name">Solar Panels</div>
+                        <div class="item-type">550W Mono</div>
+                    </div>
+                </div>
+                <div class="item-right">
+                    <div class="item-status" style="color: #fb923c;">3 left</div>
+                    <div class="item-action">Reorder soon</div>
+                </div>
+            </div>
+        </div>
+
+        <h2 style="color: #10b981; margin-top: 30px;">🎯 Make It Appear (2 Ways)</h2>
+
+        <div class="steps">
+            <h3 style="margin-top: 0; color: #60a5fa;">Method 1: Create a BOM (Fastest!)</h3>
+            
+            <div class="step">
+                <div class="step-number">1</div>
+                <strong>Click:</strong> <span class="code">BOM Generation</span> in sidebar
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <strong>Click:</strong> <span class="code">Add BOM</span> button (blue, top right)
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <strong>Fill in:</strong>
+                <ul style="margin: 8px 0 0 0;">
+                    <li>Customer Name: <span class="code">Test Solar Project</span></li>
+                    <li>Project (KW): <span class="code">5</span></li>
+                    <li>Panel Wattage: <span class="code">550</span></li>
+                    <li>AC Wire: <span class="code">4mm²</span> ⚡</li>
+                    <li>DC Wire: <span class="code">6mm²</span> ⚡</li>
+                    <li>Earthing Wire: <span class="code">16mm²</span> ⚡</li>
+                </ul>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <strong>Click:</strong> <span class="code">Add BOM Record</span>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <strong>Go to:</strong> <span class="code">Home</span> dashboard
+            </div>
+
+            <div class="step">
+                <div class="step-number">6</div>
+                <strong>🎉 Alert Appears!</strong> Shows missing AC Wire, DC Wire, Earthing Wire
+            </div>
+        </div>
+
+        <div class="steps" style="background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3);">
+            <h3 style="margin-top: 0; color: #a78bfa;">Method 2: Add Low Stock</h3>
+            
+            <div class="step">
+                <div class="step-number">1</div>
+                <strong>Click:</strong> <span class="code">Stock In</span> in sidebar
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <strong>Add:</strong>
+                <ul style="margin: 8px 0 0 0;">
+                    <li>Item: <span class="code">Wires</span></li>
+                    <li>Type: <span class="code">AC Wire 4mm²</span></li>
+                    <li>Quantity: <span class="code">3</span> ← Low!</li>
+                    <li>Fill other fields as needed</li>
+                </ul>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <strong>Go to:</strong> <span class="code">Home</span>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <strong>🎉 Alert Appears!</strong> Shows "3 left - Reorder soon"
+            </div>
+        </div>
+
+        <a href="http://localhost:3002" class="button" target="_blank">
+            🚀 Open Dashboard & Try It Now
+        </a>
+
+        <div class="note" style="margin-top: 30px;">
+            <div class="note-title">📊 Alert Thresholds</div>
+            <ul style="margin: 5px 0;">
+                <li><strong>Missing (🔴 Red):</strong> Not in inventory → Add immediately</li>
+                <li><strong>Critical (🔴 Red):</strong> ≤5 units → Urgent reorder</li>
+                <li><strong>Low (🟠 Orange):</strong> 6-10 units → Reorder soon</li>
+                <li><strong>OK (✅ Hidden):</strong> >10 units → No alert needed</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

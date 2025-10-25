@@ -1,19 +1,27 @@
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import type { InventoryEvent } from "@/lib/inventory-store-postgres";
+import { getAllTypeHSNMappings } from "@/lib/db";
 
 /**
  * Export ALL inventory events into Excel
  */
-export function exportAllEventsToExcel(events: InventoryEvent[]) {
+export async function exportAllEventsToExcel(events: InventoryEvent[]) {
+  // Fetch all HSN mappings
+  const hsnMappings = await getAllTypeHSNMappings();
+  const hsnMap = new Map(
+    hsnMappings.map((m: any) => [`${m.item_name}::${m.type_name}`, m.hsn_code])
+  );
+
   const rows = events.map((e) => ({
     ID: e.id,
     Item: e.item,
     Type: e.type,
+    "HSN Code": hsnMap.get(`${e.item}::${e.type}`) || "",
     Quantity: e.qty,
     Kind: e.kind,
     Source: e.source,
-    Supplier: e.supplier,
+    Invoice: e.supplier,
     Rate: e.rate,
     Date: new Date(e.timestamp).toLocaleDateString(),
     Time: new Date(e.timestamp).toLocaleTimeString(),
@@ -30,7 +38,7 @@ export function exportAllEventsToExcel(events: InventoryEvent[]) {
 /**
  * Export CURRENT STOCK snapshot (per item/type) calculated from events
  */
-export function exportCurrentStockToExcel(events: InventoryEvent[]) {
+export async function exportCurrentStockToExcel(events: InventoryEvent[]) {
   const stockMap: Record<string, Record<string, number>> = {};
 
   // Calculate current stock from events
@@ -46,12 +54,23 @@ export function exportCurrentStockToExcel(events: InventoryEvent[]) {
     stockMap[e.item][e.type] += e.kind === "IN" ? e.qty : -e.qty;
   });
 
-  const rows: { Item: string; Type: string; Quantity: number }[] = [];
+  // Fetch all HSN mappings
+  const hsnMappings = await getAllTypeHSNMappings();
+  const hsnMap = new Map(
+    hsnMappings.map((m: any) => [`${m.item_name}::${m.type_name}`, m.hsn_code])
+  );
+
+  const rows: { Item: string; Type: string; "HSN Code": string; Quantity: number }[] = [];
 
   Object.entries(stockMap).forEach(([item, types]) => {
     Object.entries(types).forEach(([type, qty]) => {
       if (qty > 0) { // Only show items with positive stock
-        rows.push({ Item: item, Type: type, Quantity: qty });
+        rows.push({ 
+          Item: item, 
+          Type: type, 
+          "HSN Code": hsnMap.get(`${item}::${type}`) || "",
+          Quantity: qty 
+        });
       }
     });
   });

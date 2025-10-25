@@ -190,7 +190,11 @@ type ReportRow = {
   date?: number;
 };
 
-export default function StockPanels() {
+interface StockPanelsProps {
+  mode?: "in" | "out" | "total";
+}
+
+export default function StockPanels({ mode = "total" }: StockPanelsProps) {
   const inv = useInventory();
 
   // Selection - start with undefined to avoid showing deleted items
@@ -199,15 +203,18 @@ export default function StockPanels() {
 
   const types = item ? inv.getTypesForItem(item) : [];
 
-  // New Stock Out Table
-  const [showStockOutTable, setShowStockOutTable] = React.useState<boolean>(false);
+  // New Stock Out Table - automatically shown
+  const [showStockOutTable, setShowStockOutTable] = React.useState<boolean>(true);
+  
+  // Global fields for stock out (same for all rows)
+  const [globalCustomerName, setGlobalCustomerName] = React.useState<string>("");
+  const [globalInvoiceNo, setGlobalInvoiceNo] = React.useState<string>("");
+  const [globalAddress, setGlobalAddress] = React.useState<string>("");
   
   type StockOutRow = {
     item: string;
     type: string;
     quantity: string;
-    customer: string;
-    invoice: string;
     price: string;
     gst: string;
     date: string;
@@ -223,6 +230,31 @@ export default function StockPanels() {
   const [stockInSource, setStockInSource] = React.useState<string>("");
   const [stockInPrice, setStockInPrice] = React.useState<string>("");
   const [stockInGST, setStockInGST] = React.useState<string>("");
+  const [hsnMappings, setHsnMappings] = React.useState<Array<{item_name: string, type_name: string, hsn_code: string}>>([]);
+
+  // Load HSN mappings from database
+  React.useEffect(() => {
+    const loadHSNMappings = async () => {
+      try {
+        const response = await fetch('/api/hsn');
+        const data = await response.json();
+        if (data.success) {
+          setHsnMappings(data.data);
+        }
+      } catch (error) {
+        console.error('Error loading HSN mappings:', error);
+      }
+    };
+    loadHSNMappings();
+  }, []);
+
+  // Get HSN for item and type from database
+  const getHSNForType = React.useCallback((itemName: string, typeName: string): string => {
+    const mapping = hsnMappings.find(
+      m => m.item_name === itemName && m.type_name === typeName
+    );
+    return mapping?.hsn_code || "";
+  }, [hsnMappings]);
 
   // Initialize item selection when items become available
   React.useEffect(() => {
@@ -263,6 +295,13 @@ export default function StockPanels() {
     }
   }, [inv.sources, stockInSource]);
 
+  // Auto-initialize stock out table when items are available
+  React.useEffect(() => {
+    if (inv.items.length > 0 && stockOutRows.length === 0) {
+      initializeStockOutTable();
+    }
+  }, [inv.items.length]);
+
   // Report filters
   const [reportSource, setReportSource] = React.useState<string>("All");
   const [reportFrom, setReportFrom] = React.useState<string>("");
@@ -287,40 +326,69 @@ export default function StockPanels() {
     setStockInGST("");
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      handleStockIn();
+      e.preventDefault();
+      // Find all input elements in the form
+      const form = e.currentTarget.closest('form') || e.currentTarget.closest('.space-y-3');
+      if (form) {
+        const inputs = Array.from(form.querySelectorAll('input:not([type="hidden"])')) as HTMLInputElement[];
+        const currentIndex = inputs.indexOf(e.currentTarget);
+        if (currentIndex !== -1 && currentIndex < inputs.length - 1) {
+          // Move to next input
+          inputs[currentIndex + 1]?.focus();
+        } else {
+          // Last field - submit
+          handleStockIn();
+        }
+      }
     }
   };
 
-  const handleStockOutKeyPress = (e: React.KeyboardEvent, rowIndex: number) => {
+  const handleStockOutKeyPress = (e: React.KeyboardEvent<HTMLInputElement>, rowIndex: number) => {
     if (e.key === 'Enter') {
-      const row = stockOutRows[rowIndex];
-      if (row.item && row.type && row.quantity && Number(row.quantity) > 0) {
-        inv.addEvent({
-          item: row.item,
-          type: row.type,
-          qty: Number(row.quantity),
-          rate: Number(row.price) || 0,
-          source: "Stock Out",
-          supplier: row.customer || "Unknown",
-          kind: "OUT"
-        });
-        
-        // Clear the row after processing
-        const newRows = [...stockOutRows];
-        newRows[rowIndex] = {
-          item: row.item,
-          type: row.type,
-          quantity: "",
-          customer: "",
-          invoice: "",
-          price: "",
-          gst: "",
-          date: new Date().toISOString().split('T')[0],
-          currentStock: getCurrentStock(row.item, row.type)
-        };
-        setStockOutRows(newRows);
+      e.preventDefault();
+      // Find all inputs in current row
+      const row = e.currentTarget.closest('tr');
+      if (row) {
+        const inputs = Array.from(row.querySelectorAll('input')) as HTMLInputElement[];
+        const currentIndex = inputs.indexOf(e.currentTarget);
+        if (currentIndex !== -1 && currentIndex < inputs.length - 1) {
+          // Move to next input in same row
+          inputs[currentIndex + 1]?.focus();
+        } else {
+          // Last field in row - process if has quantity
+          const rowData = stockOutRows[rowIndex];
+          if (rowData.item && rowData.type && rowData.quantity && Number(rowData.quantity) > 0) {
+            inv.addEvent({
+              item: rowData.item,
+              type: rowData.type,
+              qty: Number(rowData.quantity),
+              rate: Number(rowData.price) || 0,
+              source: globalCustomerName || "Bulk Stock Out",
+              supplier: globalInvoiceNo || "Unknown",
+              kind: "OUT"
+            });
+            
+            // Clear the quantity and price fields after processing
+            const newRows = [...stockOutRows];
+            newRows[rowIndex] = {
+              ...rowData,
+              quantity: "",
+              price: "",
+              gst: "",
+              currentStock: getCurrentStock(rowData.item, rowData.type)
+            };
+            setStockOutRows(newRows);
+            
+            // Move to first input of next row if exists
+            const nextRow = row.nextElementSibling;
+            if (nextRow) {
+              const nextInputs = Array.from(nextRow.querySelectorAll('input')) as HTMLInputElement[];
+              nextInputs[0]?.focus();
+            }
+          }
+        }
       }
     }
   };
@@ -343,8 +411,6 @@ export default function StockPanels() {
         item: itemName,
         type: firstType,
         quantity: "",
-        customer: "",
-        invoice: "",
         price: "",
         gst: "",
         date: new Date().toISOString().split('T')[0],
@@ -390,8 +456,8 @@ export default function StockPanels() {
           type: row.type,
           qty: Number(row.quantity),
           rate: Number(row.price) || 0,
-          source: "Bulk Stock Out",
-          supplier: row.customer || "Unknown",
+          source: globalCustomerName || "Bulk Stock Out",
+          supplier: globalInvoiceNo || "Unknown",
           kind: "OUT"
         });
       }
@@ -429,36 +495,73 @@ export default function StockPanels() {
   const reportResults = buildReport();
 
   const handleDownloadExcel = () => {
-    const rows = reportResults.map((r) => ({
-      "Selected Date": r.date
-        ? new Date(r.date).toLocaleDateString()
-        : new Date(r.at).toLocaleDateString(),
-      "Recorded At": new Date(r.at).toLocaleString(),
-      "Invoice No.": r.invoice ?? "",
-      Item: r.item,
-      Type: r.type,
-      Quantity: r.qty,
-      Supplier: r.supplier ?? r.source ?? "",
-      Price: typeof r.price === "number" ? r.price : "",
-      GST: r.gst ?? "",
-    }));
+    const rows = reportResults.map((r) => {
+      // Find the original event to get the "kind" field
+      const event = inv.events.find(e => e.id === r.id);
+      // Get HSN code for this item+type
+      const hsn = getHSNForType(r.item, r.type);
+      
+      return {
+        "Selected Date": r.date
+          ? new Date(r.date).toLocaleDateString()
+          : new Date(r.at).toLocaleDateString(),
+        "Recorded At": new Date(r.at).toLocaleString(),
+        "Invoice No.": r.invoice ?? "",
+        Item: r.item,
+        Type: r.type,
+        "HSN Code": hsn || "",
+        Kind: event?.kind ?? "",
+        Quantity: r.qty,
+        Invoice: r.supplier ?? r.source ?? "",
+        Price: typeof r.price === "number" ? r.price : "",
+        GST: r.gst ?? "",
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(rows);
+    
+    // Apply color coding: green for IN, red for OUT
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+      // Get the "Kind" cell value (column G, index 6 - moved because HSN was added)
+      const kindCell = ws[XLSX.utils.encode_cell({ r: R, c: 6 })];
+      if (kindCell && kindCell.v) {
+        const fillColor = kindCell.v === "IN" ? "C6EFCE" : "FFC7CE"; // Light green for IN, light red for OUT
+        
+        // Apply color to the entire row
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!ws[cellAddress]) continue;
+          
+          if (!ws[cellAddress].s) ws[cellAddress].s = {};
+          ws[cellAddress].s.fill = {
+            fgColor: { rgb: fillColor }
+          };
+        }
+      }
+    }
+    
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Stock Report");
     XLSX.writeFile(wb, "stock_report.xlsx");
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {/* STOCK IN */}
-      <Card className="bg-neutral-900/60 border-neutral-800 md:col-span-1">
-        <CardHeader>
-          <CardTitle className="text-xs tracking-wider text-neutral-400">
-            STOCK IN
-          </CardTitle>
-        </CardHeader>
+    <div className={`grid gap-4 ${
+      mode === "in" ? "grid-cols-1" : 
+      mode === "out" ? "grid-cols-1" : 
+      "grid-cols-1 md:grid-cols-3"
+    }`}>
+      {/* STOCK IN - Show only on 'in' or 'total' mode */}
+      {(mode === "in" || mode === "total") && (
+        <Card className={`bg-neutral-900/60 border-neutral-800 ${mode === "total" ? "md:col-span-1" : ""}`}>
+          <CardHeader>
+            <CardTitle className="text-xs tracking-wider text-neutral-400">
+              STOCK IN
+            </CardTitle>
+          </CardHeader>
         <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
           <ItemDropdown
             selected={item}
             onSelect={(v) => {
@@ -512,6 +615,7 @@ export default function StockPanels() {
             }}
             options={inv.sources}
           />
+          </div>
 
           <div className="flex flex-wrap gap-2">
             <Input
@@ -564,14 +668,16 @@ export default function StockPanels() {
           </Button>
         </CardContent>
       </Card>
+      )}
 
-      {/* STOCK OUT */}
-      <Card className="bg-neutral-900/60 border-neutral-800 md:col-span-2">
-        <CardHeader>
-          <CardTitle className="text-xs tracking-wider text-neutral-400">
-            STOCK OUT
-          </CardTitle>
-        </CardHeader>
+      {/* STOCK OUT - Show only on 'out' or 'total' mode */}
+      {(mode === "out" || mode === "total") && (
+        <Card className={`bg-neutral-900/60 border-neutral-800 ${mode === "total" ? "md:col-span-2" : ""}`}>
+          <CardHeader>
+            <CardTitle className="text-xs tracking-wider text-neutral-400">
+              STOCK OUT
+            </CardTitle>
+          </CardHeader>
         <CardContent className="space-y-3">
           {!showStockOutTable ? (
             <Button
@@ -582,6 +688,43 @@ export default function StockPanels() {
             </Button>
           ) : (
             <div className="space-y-4">
+              {/* Global Customer Info */}
+              <div className="bg-neutral-800/50 p-4 rounded-lg space-y-3 border border-neutral-700">
+                <h3 className="text-sm font-semibold text-neutral-200 mb-3">Customer Information (Same for all items)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs text-neutral-400 mb-1 block">Customer Name</label>
+                    <Input
+                      type="text"
+                      value={globalCustomerName}
+                      onChange={(e) => setGlobalCustomerName(e.target.value)}
+                      placeholder="Enter customer name"
+                      className="bg-neutral-900 border-neutral-800 text-neutral-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 mb-1 block">Invoice No.</label>
+                    <Input
+                      type="text"
+                      value={globalInvoiceNo}
+                      onChange={(e) => setGlobalInvoiceNo(e.target.value)}
+                      placeholder="Enter invoice number"
+                      className="bg-neutral-900 border-neutral-800 text-neutral-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-neutral-400 mb-1 block">Address</label>
+                    <Input
+                      type="text"
+                      value={globalAddress}
+                      onChange={(e) => setGlobalAddress(e.target.value)}
+                      placeholder="Enter address"
+                      className="bg-neutral-900 border-neutral-800 text-neutral-100"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="overflow-auto border border-neutral-800 rounded-md">
                 <div className="overflow-x-auto">
                   <Table className="min-w-full">
@@ -590,8 +733,6 @@ export default function StockPanels() {
                       <TableHead className="text-neutral-400 min-w-[120px]">Item</TableHead>
                       <TableHead className="text-neutral-400 min-w-[120px]">Type</TableHead>
                       <TableHead className="text-neutral-400 min-w-[100px]">Quantity</TableHead>
-                      <TableHead className="text-neutral-400 min-w-[120px]">Customer</TableHead>
-                      <TableHead className="text-neutral-400 min-w-[120px]">Invoice</TableHead>
                       <TableHead className="text-neutral-400 min-w-[100px]">Price</TableHead>
                       <TableHead className="text-neutral-400 min-w-[80px]">GST (%)</TableHead>
                       <TableHead className="text-neutral-400 min-w-[120px]">Date</TableHead>
@@ -630,29 +771,9 @@ export default function StockPanels() {
                             type="number"
                             value={row.quantity}
                             onChange={(e) => updateStockOutRow(index, 'quantity', e.target.value)}
-                            onKeyPress={(e) => handleStockOutKeyPress(e, index)}
+                            onKeyDown={(e) => handleStockOutKeyPress(e, index)}
                             placeholder="Qty"
                             className="bg-neutral-900 border-neutral-800 text-neutral-100 placeholder:text-neutral-500 w-20"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="text"
-                            value={row.customer}
-                            onChange={(e) => updateStockOutRow(index, 'customer', e.target.value)}
-                            onKeyPress={(e) => handleStockOutKeyPress(e, index)}
-                            placeholder="Customer"
-                            className="bg-neutral-900 border-neutral-800 text-neutral-100 placeholder:text-neutral-500 w-24"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="text"
-                            value={row.invoice}
-                            onChange={(e) => updateStockOutRow(index, 'invoice', e.target.value)}
-                            onKeyPress={(e) => handleStockOutKeyPress(e, index)}
-                            placeholder="Invoice"
-                            className="bg-neutral-900 border-neutral-800 text-neutral-100 placeholder:text-neutral-500 w-24"
                           />
                         </TableCell>
                         <TableCell>
@@ -661,7 +782,7 @@ export default function StockPanels() {
                             step="0.01"
                             value={row.price}
                             onChange={(e) => updateStockOutRow(index, 'price', e.target.value)}
-                            onKeyPress={(e) => handleStockOutKeyPress(e, index)}
+                            onKeyDown={(e) => handleStockOutKeyPress(e, index)}
                             placeholder="Price"
                             className="bg-neutral-900 border-neutral-800 text-neutral-100 placeholder:text-neutral-500 w-20"
                           />
@@ -672,7 +793,7 @@ export default function StockPanels() {
                             step="0.01"
                             value={row.gst}
                             onChange={(e) => updateStockOutRow(index, 'gst', e.target.value)}
-                            onKeyPress={(e) => handleStockOutKeyPress(e, index)}
+                            onKeyDown={(e) => handleStockOutKeyPress(e, index)}
                             placeholder="GST"
                             className="bg-neutral-900 border-neutral-800 text-neutral-100 placeholder:text-neutral-500 w-20"
                           />
@@ -682,7 +803,7 @@ export default function StockPanels() {
                             type="date"
                             value={row.date}
                             onChange={(e) => updateStockOutRow(index, 'date', e.target.value)}
-                            onKeyPress={(e) => handleStockOutKeyPress(e, index)}
+                            onKeyDown={(e) => handleStockOutKeyPress(e, index)}
                             className="bg-neutral-900 border-neutral-800 text-neutral-100 w-32"
                           />
                         </TableCell>
@@ -733,15 +854,17 @@ export default function StockPanels() {
           )}
         </CardContent>
       </Card>
+      )}
 
 
-      {/* REPORT */}
-      <Card className="bg-neutral-900/60 border-neutral-800 md:col-span-3">
-        <CardHeader>
-          <CardTitle className="text-xs tracking-wider text-neutral-400">
-            REPORT & EXPORT
-          </CardTitle>
-        </CardHeader>
+      {/* REPORT - Show only on 'total' mode */}
+      {mode === "total" && (
+        <Card className="bg-neutral-900/60 border-neutral-800 md:col-span-3">
+          <CardHeader>
+            <CardTitle className="text-xs tracking-wider text-neutral-400">
+              REPORT & EXPORT
+            </CardTitle>
+          </CardHeader>
         <CardContent>
           <div className="flex gap-4 mb-4">
             <Input
@@ -777,6 +900,7 @@ export default function StockPanels() {
           </Button>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }
