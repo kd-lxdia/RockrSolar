@@ -309,7 +309,7 @@ function exportAllBOMsToExcel(records: BOMRecord[]) {
     return;
   }
 
-  const allBOMData: any[] = [];
+  const allBOMData: Record<string, string | number>[] = [];
 
   records.forEach((record) => {
     const bomItems = computeBOMItems(record);

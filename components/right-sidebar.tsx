@@ -2,15 +2,12 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import {
-  ArrowDownRight,
-  ArrowUpRight,
   X as CloseIcon,
-  ChevronRight,
   ChevronLeft,
 } from "lucide-react";
 import { LowStockAlert } from "@/components/LowStockAlert";
 import { useInventory } from "@/lib/inventory-store-postgres";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 function useClock() {

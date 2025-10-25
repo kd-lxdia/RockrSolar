@@ -2,8 +2,9 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Printer } from "lucide-react";
+import type { BOMRecord } from "@/components/BOMManagement.client";
 
-export default function PrintableBOM({ record }: { record: any }) {
+export default function PrintableBOM({ record }: { record: BOMRecord }) {
   const handlePrint = () => {
     try {
       window.print();

@@ -300,6 +300,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
     if (inv.items.length > 0 && stockOutRows.length === 0) {
       initializeStockOutTable();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inv.items.length]);
 
   // Report filters

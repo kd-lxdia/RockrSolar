@@ -17,7 +17,7 @@ export default async function Page(props: Props) {
   try {
     const records = await getBOMRecords();
     console.log('Found records:', records.length, 'Looking for ID:', id);
-    record = records.find((r: any) => r.id === id) || null;
+    record = records.find((r) => r.id === id) || null;
     if (!record) {
       console.log('Record not found. Available IDs:', records.map(r => r.id));
     }

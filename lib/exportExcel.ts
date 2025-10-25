@@ -9,9 +9,10 @@ import { getAllTypeHSNMappings } from "@/lib/db";
 export async function exportAllEventsToExcel(events: InventoryEvent[]) {
   // Fetch all HSN mappings
   const hsnMappings = await getAllTypeHSNMappings();
-  const hsnMap = new Map(
-    hsnMappings.map((m: any) => [`${m.item_name}::${m.type_name}`, m.hsn_code])
-  );
+  const hsnMap = new Map<string, string>();
+  hsnMappings.forEach((m) => {
+    hsnMap.set(`${m.item_name}::${m.type_name}`, m.hsn_code || '');
+  });
 
   const rows = events.map((e) => ({
     ID: e.id,
@@ -56,9 +57,10 @@ export async function exportCurrentStockToExcel(events: InventoryEvent[]) {
 
   // Fetch all HSN mappings
   const hsnMappings = await getAllTypeHSNMappings();
-  const hsnMap = new Map(
-    hsnMappings.map((m: any) => [`${m.item_name}::${m.type_name}`, m.hsn_code])
-  );
+  const hsnMap = new Map<string, string>();
+  hsnMappings.forEach((m) => {
+    hsnMap.set(`${m.item_name}::${m.type_name}`, m.hsn_code || '');
+  });
 
   const rows: { Item: string; Type: string; "HSN Code": string; Quantity: number }[] = [];
 

@@ -25,7 +25,7 @@ export interface MissingStockItem {
  * Map BOM row items to inventory items
  * This creates standardized item/type pairs for inventory tracking
  */
-function mapBOMRowToInventory(bomRow: any, customerName: string): Array<{item: string, type: string, qty: number, customer: string}> {
+function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; qty: string | number; description?: string }, customerName: string): Array<{item: string, type: string, qty: number, customer: string}> {
   const items: Array<{item: string, type: string, qty: number, customer: string}> = [];
   
   const qty = typeof bomRow.qty === 'string' ? parseFloat(bomRow.qty) : bomRow.qty;
@@ -113,7 +113,8 @@ export function calculateRequiredInventory(bomRecords: BOMRecord[]): Map<string,
     const rows = generateBOMRows(bom);
     
     rows.forEach(row => {
-      const inventoryItems = mapBOMRowToInventory(row, bom.name);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const inventoryItems = mapBOMRowToInventory(row as any, bom.name);
       
       inventoryItems.forEach(invItem => {
         const key = `${invItem.item}::${invItem.type}`;

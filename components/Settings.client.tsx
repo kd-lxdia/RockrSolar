@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Save, RefreshCw, Edit2, Check, X } from "lucide-react";
+import { Save, RefreshCw, Edit2, Check, X } from "lucide-react";
 import { useInventory } from "@/lib/inventory-store-postgres";
 import {
   DropdownMenu,
@@ -80,6 +80,7 @@ export default function Settings() {
 
   useEffect(() => {
     loadMappings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Rebuild list when inventory changes
@@ -87,6 +88,7 @@ export default function Settings() {
     if (mappings.length > 0 || inv.items.length > 0) {
       buildAllItemTypesList(mappings);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inv.items, inv.events, mappings]);
 
   // Auto-select first item
