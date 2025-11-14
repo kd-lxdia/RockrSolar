@@ -34,30 +34,7 @@ export function RightSidebar() {
   const now = useClock();
   const [isMinimized, setIsMinimized] = useState(false);
 
-  const [locationText, setLocationText] = useState<string>("");
-
-  useEffect(() => {
-    let mounted = true;
-    if (typeof navigator !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          if (!mounted) return;
-          const { latitude, longitude } = pos.coords;
-          setLocationText(`Near ${latitude.toFixed(2)}, ${longitude.toFixed(2)}`);
-        },
-        () => {
-          if (!mounted) return;
-          setLocationText(Intl.DateTimeFormat().resolvedOptions().timeZone);
-        },
-        { enableHighAccuracy: false, maximumAge: 600_000, timeout: 5000 }
-      );
-    } else {
-      setLocationText(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    }
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const [locationText] = useState<string>(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
   if (isMinimized) {
     return (

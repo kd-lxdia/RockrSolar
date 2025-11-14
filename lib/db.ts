@@ -211,7 +211,10 @@ export async function getHSNForType(itemName: string, typeName: string): Promise
 }
 
 export async function getAllTypeHSNMappings() {
-  if (shouldUseMockDb()) return [];
+  if (shouldUseMockDb()) {
+    console.log('⚠️ Mock DB mode - returning empty HSN mappings');
+    return [];
+  }
   try {
     const { rows } = await sql`
       SELECT item_name, type_name, hsn_code 
@@ -219,6 +222,7 @@ export async function getAllTypeHSNMappings() {
       WHERE hsn_code IS NOT NULL
       ORDER BY item_name, type_name
     `;
+    console.log('✅ Retrieved HSN mappings:', rows.length, 'entries');
     return rows;
   } catch (error) {
     console.error('Error getting all HSN mappings:', error);
@@ -227,13 +231,19 @@ export async function getAllTypeHSNMappings() {
 }
 
 export async function updateTypeHSN(itemName: string, typeName: string, hsnCode: string) {
-  if (shouldUseMockDb()) return;
+  if (shouldUseMockDb()) {
+    console.log('⚠️ Mock DB mode - HSN not saved:', { itemName, typeName, hsnCode });
+    return;
+  }
+  
+  console.log('✅ Saving HSN to database:', { itemName, typeName, hsnCode });
   await sql`
     INSERT INTO types (item_name, type_name, hsn_code)
     VALUES (${itemName}, ${typeName}, ${hsnCode})
     ON CONFLICT (item_name, type_name) 
     DO UPDATE SET hsn_code = ${hsnCode}
   `;
+  console.log('✅ HSN saved successfully');
 }
 
 // Sources CRUD
