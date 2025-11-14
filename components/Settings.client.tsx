@@ -38,6 +38,9 @@ export default function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editHSN, setEditHSN] = useState("");
+  const [newItemName, setNewItemName] = useState("");
+  const [newTypeName, setNewTypeName] = useState("");
+  const [selectedItemForType, setSelectedItemForType] = useState("");
 
   const types = selectedItem ? inv.getTypesForItem(selectedItem) : [];
 
@@ -227,6 +230,30 @@ export default function Settings() {
     }
   };
 
+  const handleAddItem = async () => {
+    if (!newItemName.trim()) return;
+    await inv.addItem(newItemName.trim());
+    setNewItemName("");
+  };
+
+  const handleRemoveItem = async (itemName: string) => {
+    if (confirm(`Remove item "${itemName}" and all its types?`)) {
+      await inv.removeItem(itemName);
+    }
+  };
+
+  const handleAddType = async () => {
+    if (!selectedItemForType || !newTypeName.trim()) return;
+    await inv.addType(selectedItemForType, newTypeName.trim());
+    setNewTypeName("");
+  };
+
+  const handleRemoveType = async (itemName: string, typeName: string) => {
+    if (confirm(`Remove type "${typeName}" from item "${itemName}"?`)) {
+      await inv.removeType(itemName, typeName);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -237,6 +264,126 @@ export default function Settings() {
 
   return (
     <div className="space-y-4">
+      {/* Items Management */}
+      <Card className="bg-neutral-900/60 border-neutral-800">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-neutral-100">
+            Manage Items
+          </CardTitle>
+          <p className="text-xs text-neutral-500 mt-1">
+            Add or remove items from your inventory
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleAddItem()}
+              placeholder="New item name (e.g., Motor)"
+              className="bg-neutral-900 border-neutral-800 text-neutral-100 flex-1"
+            />
+            <Button
+              onClick={handleAddItem}
+              disabled={!newItemName.trim()}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              Add Item
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {inv.items.map(item => (
+              <div key={item} className="flex items-center gap-1 bg-neutral-800 px-3 py-1 rounded-md">
+                <span className="text-neutral-200 text-sm">{item}</span>
+                <button
+                  onClick={() => handleRemoveItem(item)}
+                  className="text-red-400 hover:text-red-300 ml-1"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Types Management */}
+      <Card className="bg-neutral-900/60 border-neutral-800">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-neutral-100">
+            Manage Types
+          </CardTitle>
+          <p className="text-xs text-neutral-500 mt-1">
+            Add or remove types for each item
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 text-neutral-200 px-3 py-2 rounded-md text-sm">
+                <span className="text-neutral-400">Item:</span>
+                <span className="font-medium text-neutral-100">
+                  {selectedItemForType || "Select Item"}
+                </span>
+                <ChevronDown size={14} className="text-neutral-500 ml-auto" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="min-w-56 bg-[#121317] border-neutral-800 text-neutral-100">
+                {inv.items.map((item) => (
+                  <DropdownMenuItem
+                    key={item}
+                    onClick={() => setSelectedItemForType(item)}
+                    className="text-neutral-100 cursor-pointer hover:bg-neutral-800"
+                  >
+                    {item}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Input
+              type="text"
+              value={newTypeName}
+              onChange={(e) => setNewTypeName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleAddType()}
+              placeholder="New type name (e.g., 1HP)"
+              className="bg-neutral-900 border-neutral-800 text-neutral-100 flex-1"
+              disabled={!selectedItemForType}
+            />
+            <Button
+              onClick={handleAddType}
+              disabled={!selectedItemForType || !newTypeName.trim()}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              Add Type
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {inv.items.map(item => {
+              const types = inv.getTypesForItem(item);
+              if (types.length === 0) return null;
+              return (
+                <div key={item} className="bg-neutral-800/50 p-3 rounded-md">
+                  <div className="text-sm font-medium text-neutral-300 mb-2">{item}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {types.map(type => (
+                      <div key={type} className="flex items-center gap-1 bg-neutral-900 px-2 py-1 rounded text-xs">
+                        <span className="text-neutral-200">{type}</span>
+                        <button
+                          onClick={() => handleRemoveType(item, type)}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="bg-neutral-900/60 border-neutral-800">
         <CardHeader>
           <CardTitle className="text-lg font-semibold text-neutral-100">

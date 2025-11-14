@@ -309,22 +309,35 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
   const [reportTo, setReportTo] = React.useState<string>("");
 
   const handleStockIn = async () => {
-    if (!item || !type || !qin || Number(qin) <= 0) return;
+    console.log('Stock In clicked:', { item, type, qin, stockInPrice, stockInSource, invoiceNo });
+    
+    if (!item || !type || !qin || Number(qin) <= 0) {
+      console.log('Validation failed:', { item, type, qin });
+      alert('Please fill in Item, Type, and Quantity (must be > 0)');
+      return;
+    }
 
-    await inv.addEvent({
-      item,
-      type,
-      qty: Number(qin),
-      rate: stockInPrice !== "" ? Number(stockInPrice) : 0,
-      source: stockInSource || "Unknown",
-      supplier: invoiceNo.trim() || "Unknown",
-      kind: "IN"
-    });
+    try {
+      console.log('Adding stock in event...');
+      await inv.addEvent({
+        item,
+        type,
+        qty: Number(qin),
+        rate: stockInPrice !== "" ? Number(stockInPrice) : 0,
+        source: stockInSource || "Unknown",
+        supplier: invoiceNo.trim() || "Unknown",
+        kind: "IN"
+      });
 
-    setQin("");
-    setInvoiceNo("");
-    setStockInPrice("");
-    setStockInGST("");
+      console.log('Stock in event added successfully');
+      setQin("");
+      setInvoiceNo("");
+      setStockInPrice("");
+      setStockInGST("");
+    } catch (error) {
+      console.error('Error adding stock in:', error);
+      alert('Failed to add stock. Check console for details.');
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -346,7 +359,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
     }
   };
 
-  const handleStockOutKeyPress = (e: React.KeyboardEvent<HTMLInputElement>, rowIndex: number) => {
+  const handleStockOutKeyPress = async (e: React.KeyboardEvent<HTMLInputElement>, rowIndex: number) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       // Find all inputs in current row
@@ -361,7 +374,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
           // Last field in row - process if has quantity
           const rowData = stockOutRows[rowIndex];
           if (rowData.item && rowData.type && rowData.quantity && Number(rowData.quantity) > 0) {
-            inv.addEvent({
+            await inv.addEvent({
               item: rowData.item,
               type: rowData.type,
               qty: Number(rowData.quantity),
@@ -449,10 +462,23 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
     }
   }, [inv.events, showStockOutTable, getCurrentStock, stockOutRows.length]);
 
-  const processStockOutTable = () => {
-    stockOutRows.forEach(row => {
-      if (row.item && row.type && row.quantity && Number(row.quantity) > 0) {
-        inv.addEvent({
+  const processStockOutTable = async () => {
+    console.log('Process Stock Out clicked. Rows:', stockOutRows);
+    
+    // Filter valid rows
+    const validRows = stockOutRows.filter(row => row.item && row.type && row.quantity && Number(row.quantity) > 0);
+    console.log('Valid rows to process:', validRows.length);
+    
+    if (validRows.length === 0) {
+      alert('No valid rows to process. Please fill in Item, Type, and Quantity.');
+      return;
+    }
+    
+    try {
+      // Process all rows with await
+      const promises = validRows.map(row => {
+        console.log('Processing row:', row);
+        return inv.addEvent({
           item: row.item,
           type: row.type,
           qty: Number(row.quantity),
@@ -461,12 +487,19 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
           supplier: globalInvoiceNo || "Unknown",
           kind: "OUT"
         });
-      }
-    });
-    
-    // Reset table
-    setStockOutRows([]);
-    setShowStockOutTable(false);
+      });
+      
+      // Wait for all events to be saved
+      await Promise.all(promises);
+      console.log('All stock out events processed successfully');
+      
+      // Reset table after all events are saved
+      setStockOutRows([]);
+      setShowStockOutTable(false);
+    } catch (error) {
+      console.error('Error processing stock out:', error);
+      alert('Failed to process stock out. Check console for details.');
+    }
   };
 
   const buildReport = React.useCallback((): ReportRow[] => {
