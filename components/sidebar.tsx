@@ -1,9 +1,10 @@
 "use client"
 
-import { Home, ArrowDownLeft, ArrowUpRight, Boxes, LogOut, User, FileText, AlertTriangle, Settings } from "lucide-react"
+import { Home, ArrowDownLeft, ArrowUpRight, Boxes, LogOut, User, FileText, AlertTriangle, Settings, Menu, X } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
+import { useState } from "react"
 
 const nav = [
   { label: "Home", icon: Home },
@@ -12,14 +13,38 @@ const nav = [
   { label: "Total Stock Available", icon: Boxes },
   { label: "Stock Alerts", icon: AlertTriangle },
   { label: "BOM Generation", icon: FileText },
+  { label: "Pipeline", icon: Boxes },
   { label: "Settings", icon: Settings },
 ]
 
-export function Sidebar({ onSelect }: { onSelect?: (key: "home" | "in" | "out" | "total" | "alerts" | "bom" | "settings") => void }) {
+export function Sidebar({ onSelect }: { onSelect?: (key: "home" | "in" | "out" | "total" | "alerts" | "bom" | "pipeline" | "settings") => void }) {
   const { username, role, logout } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
   
   return (
-    <aside className="hidden md:flex flex-col w-64 bg-[#0e0f12] border-r border-neutral-800 text-neutral-200">
+    <>
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-neutral-900 text-white rounded-md shadow-lg"
+      >
+        {isOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
+      {/* Overlay */}
+      {isOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={cn(
+        "flex flex-col w-64 bg-[#0e0f12] border-r border-neutral-800 text-neutral-200",
+        "fixed md:static inset-y-0 left-0 z-40 transform transition-transform duration-300",
+        isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      )}>
       <div className="px-5 py-4 border-b border-neutral-800">
         <div className="text-xs uppercase tracking-widest text-blue-400">Tools</div>
       </div>
@@ -31,12 +56,14 @@ export function Sidebar({ onSelect }: { onSelect?: (key: "home" | "in" | "out" |
                 href="#"
                 onClick={(e) => {
                   e.preventDefault()
+                  setIsOpen(false) // Close sidebar on mobile
                   if (!onSelect) return
                   if (n.label === "Home") onSelect("home")
                   else if (n.label === "Stock In") onSelect("in")
                   else if (n.label === "Stock Out") onSelect("out")
                   else if (n.label === "Stock Alerts") onSelect("alerts")
                   else if (n.label === "BOM Generation") onSelect("bom")
+                  else if (n.label === "Pipeline") onSelect("pipeline")
                   else if (n.label === "Settings") onSelect("settings")
                   else onSelect("total")
                 }}
@@ -72,6 +99,7 @@ export function Sidebar({ onSelect }: { onSelect?: (key: "home" | "in" | "out" |
           <span>Logout</span>
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }

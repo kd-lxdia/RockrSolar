@@ -11,15 +11,19 @@ import StockPanels from "@/components/StockPanels.client"
 import { HistoryTable } from "@/components/history-table"
 import ClientOnly from "@/components/ClientOnly"
 import { useInventory } from "@/lib/inventory-store-postgres"
-import { exportAllEventsToExcel, exportCurrentStockToExcel } from "@/lib/exportExcel"
+import { exportAllEventsToExcel, exportCurrentStockToExcel, exportStockInToExcel, exportStockOutToExcel, exportByDateRange } from "@/lib/exportExcel"
 import BOMManagement from "@/components/BOMManagement.client"
 import { LowStockAlert } from "@/components/LowStockAlert"
 import { StockAlertsView } from "@/components/StockAlertsView"
 import Settings from "@/components/Settings.client"
+import PipelineView from "@/components/PipelineView.client"
 
 export default function Page() {
-  const [openTable, setOpenTable] = useState<null | "in" | "out" | "total" | "alerts" | "bom" | "settings">(null)
+  const [openTable, setOpenTable] = useState<null | "in" | "out" | "total" | "alerts" | "bom" | "pipeline" | "settings">(null)
   const [currentTime, setCurrentTime] = useState<string>("")
+  const [showDateFilter, setShowDateFilter] = useState(false)
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
   const inventory = useInventory()
   const { role, isLoading } = useAuth()
   const router = useRouter()
@@ -71,16 +75,14 @@ export default function Page() {
       </header>
 
       {/* Main shell */}
-      <div className="flex h-[calc(100vh-48px)] overflow-hidden">
-        {/* Left sidebar */}
-        <aside className="hidden md:block w-64 shrink-0 h-full border-r border-neutral-800 bg-[#0e0f12] overflow-y-auto">
-          <Sidebar
+      <div className="flex h-[calc(100vh-48px)] md:h-[calc(100vh-48px)] h-screen overflow-hidden">
+        {/* Left sidebar - Now visible on mobile too */}
+        <Sidebar
             onSelect={(key) => {
               if (key === "home") setOpenTable(null)
               else setOpenTable(key)
             }}
           />
-        </aside>
 
         {/* Central content */}
         <main className="flex-1 min-w-0 h-full overflow-y-auto p-3 md:p-6">
@@ -122,6 +124,19 @@ export default function Page() {
                 </div>
               </div>
               <Settings />
+            </>
+          ) : openTable === "pipeline" ? (
+            /* Pipeline View */
+            <>
+              <div className="mb-3 md:mb-4">
+                <h1 className="text-white font-extrabold tracking-[0.15em] uppercase text-xl md:text-2xl">
+                  Project Pipeline
+                </h1>
+                <div className="text-[11px] text-neutral-500">
+                  Track material availability for all projects
+                </div>
+              </div>
+              <PipelineView />
             </>
           ) : openTable === "in" || openTable === "out" || openTable === "total" ? (
             /* Stock Management Pages (IN/OUT/TOTAL) - Now showing in main area */
@@ -176,7 +191,7 @@ export default function Page() {
               {/* Quick Actions */}
               <section className="mt-6 space-y-3">
                 <h2 className="text-xs tracking-wider text-neutral-400">
-                  Quick Actions
+                  Export Options
                 </h2>
                 <div className="flex flex-wrap gap-3">
                   <button
@@ -191,6 +206,74 @@ export default function Page() {
                   >
                     📦 Export Current Stock
                   </button>
+                  <button
+                    onClick={async () => await exportStockInToExcel(inventory.events)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                  >
+                    ⬇️ Export Stock IN
+                  </button>
+                  <button
+                    onClick={async () => await exportStockOutToExcel(inventory.events)}
+                    className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                  >
+                    ⬆️ Export Stock OUT
+                  </button>
+                  <button
+                    onClick={() => setShowDateFilter(!showDateFilter)}
+                    className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                  >
+                    📅 Export by Date Range
+                  </button>
+                </div>
+
+                {/* Date Range Filter */}
+                {showDateFilter && (
+                  <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-4 space-y-3">
+                    <h3 className="text-sm font-medium text-neutral-200">Select Date Range</h3>
+                    <div className="flex flex-wrap gap-3 items-end">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-neutral-400">Start Date</label>
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="bg-neutral-800 border border-neutral-700 text-neutral-200 px-3 py-2 rounded text-sm"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-neutral-400">End Date</label>
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="bg-neutral-800 border border-neutral-700 text-neutral-200 px-3 py-2 rounded text-sm"
+                        />
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!startDate || !endDate) {
+                            alert("Please select both start and end dates");
+                            return;
+                          }
+                          const start = new Date(startDate);
+                          const end = new Date(endDate);
+                          end.setHours(23, 59, 59, 999); // Include full end date
+                          await exportByDateRange(inventory.events, start, end);
+                        }}
+                        className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                      >
+                        📥 Download
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <h2 className="text-xs tracking-wider text-neutral-400 mt-6">
+                  Quick Actions
+                </h2>
+                <div className="flex flex-wrap gap-3">
                   <button
                     onClick={() => setOpenTable("in")}
                     className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded text-sm font-medium transition-colors"

@@ -3,14 +3,16 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Download, Plus, PackageMinus, FileText } from "lucide-react";
+import { Trash2, Download, Plus, FileText, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
+import CustomBOMCreator from "./CustomBOMCreator.client";
 
 export interface BOMRecord {
   id: string;
   name: string;
   project_in_kw: number;
   wattage_of_panels: number;
+  panel_name?: string;
   table_option: string;
   phase: "SINGLE" | "TRIPLE";
   ac_wire: string;
@@ -27,8 +29,8 @@ export interface BOMRecord {
 
 // BOM Calculation Logic (from Google Apps Script)
 function computeBOMItems(record: BOMRecord) {
-  const kw = record.project_in_kw;
-  const wattage = record.wattage_of_panels;
+  const kw = Number(record.project_in_kw) || 0;
+  const wattage = Number(record.wattage_of_panels) || 0;
   const phase = record.phase;
   
   // Helper to parse wire lengths
@@ -37,11 +39,11 @@ function computeBOMItems(record: BOMRecord) {
     return match ? parseFloat(match.join('')) : 0;
   };
 
-  const acWireLen = parseWireLength(record.ac_wire);
-  const dcWireLen = parseWireLength(record.dc_wire);
-  const laWireLen = parseWireLength(record.la_wire);
-  const earthingWireLen = parseWireLength(record.earthing_wire);
-  const noOfLegs = record.no_of_legs || 0;
+  const acWireLen = parseWireLength(record.ac_wire || '');
+  const dcWireLen = parseWireLength(record.dc_wire || '');
+  const laWireLen = parseWireLength(record.la_wire || '');
+  const earthingWireLen = parseWireLength(record.earthing_wire || '');
+  const noOfLegs = Number(record.no_of_legs) || 0;
 
   // 1. Panel count
   const wp = wattage >= 100 ? wattage : wattage * 1000;
@@ -388,6 +390,8 @@ function exportAllBOMsToExcel(records: BOMRecord[]) {
 export default function BOMManagement() {
   const [records, setRecords] = useState<BOMRecord[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [showCustomCreator, setShowCustomCreator] = useState(false);
+  const [showCreateOptions, setShowCreateOptions] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -395,6 +399,7 @@ export default function BOMManagement() {
     name: "",
     project_in_kw: "",
     wattage_of_panels: "",
+    panel_name: "",
     table_option: "Option 1",
     phase: "SINGLE" as "SINGLE" | "TRIPLE",
     ac_wire: "",
@@ -444,6 +449,7 @@ export default function BOMManagement() {
       name: formData.name,
       project_in_kw: parseFloat(formData.project_in_kw),
       wattage_of_panels: parseFloat(formData.wattage_of_panels),
+      panel_name: formData.panel_name || undefined,
       table_option: formData.table_option,
       phase: formData.phase,
       ac_wire: formData.ac_wire,
@@ -476,6 +482,7 @@ export default function BOMManagement() {
           name: "",
           project_in_kw: "",
           wattage_of_panels: "",
+          panel_name: "",
           table_option: "Option 1",
           phase: "SINGLE",
           ac_wire: "",
@@ -522,7 +529,7 @@ export default function BOMManagement() {
       `• DC Wire: ${record.dc_wire || "N/A"}\n` +
       `• LA Wire: ${record.la_wire || "N/A"}\n` +
       `• Earthing Wire: ${record.earthing_wire || "N/A"}\n` +
-      `• Solar Panels: ${Math.ceil(record.project_in_kw * 1000 / record.wattage_of_panels)} units\n` +
+      `• Solar Panels: ${Math.ceil(record.project_in_kw * 1000 / record.wattage_of_panels)} units${record.panel_name ? ` (${record.panel_name})` : ""}\n` +
       `• Inverter: ${record.project_in_kw}KW ${record.phase}\n` +
       (record.no_of_legs > 0 ? `• Structure Legs: ${record.no_of_legs} units\n` : "") +
       `\nCustomer: ${record.name}\n\n` +
@@ -592,16 +599,66 @@ export default function BOMManagement() {
                 Export All to Excel
               </Button>
             )}
-            <Button
-              onClick={() => setShowForm(!showForm)}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              size="sm"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              {showForm ? "Cancel" : "Add BOM"}
-            </Button>
+            {!showForm && !showCustomCreator && !showCreateOptions && (
+              <Button
+                onClick={() => setShowCreateOptions(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                size="sm"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create BOM
+              </Button>
+            )}
+            {showCreateOptions && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    setShowForm(true);
+                    setShowCreateOptions(false);
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  size="sm"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Fill Form
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowCustomCreator(true);
+                    setShowCreateOptions(false);
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  size="sm"
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Create Your Own
+                </Button>
+                <Button
+                  onClick={() => setShowCreateOptions(false)}
+                  variant="outline"
+                  className="border-neutral-700 text-neutral-400"
+                  size="sm"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
           </div>
         </CardHeader>
+
+        {showCustomCreator && (
+          <CardContent className="border-t border-neutral-800 pt-4">
+            <CustomBOMCreator
+              onSave={async (bomName, rows) => {
+                // Save custom BOM
+                alert(`Custom BOM "${bomName}" created with ${rows.length} items!`);
+                // TODO: Implement API to save custom BOM
+                setShowCustomCreator(false);
+              }}
+              onCancel={() => setShowCustomCreator(false)}
+            />
+          </CardContent>
+        )}
 
         {showForm && (
           <CardContent className="border-t border-neutral-800 pt-4">
@@ -652,6 +709,17 @@ export default function BOMManagement() {
                   onChange={(e) => setFormData({ ...formData, wattage_of_panels: e.target.value })}
                   className="w-full bg-neutral-900 border border-neutral-800 rounded px-3 py-2 text-neutral-100 text-sm"
                   placeholder="e.g., 550"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-neutral-400 mb-1 block">Solar Panel Name</label>
+                <input
+                  type="text"
+                  value={formData.panel_name}
+                  onChange={(e) => setFormData({ ...formData, panel_name: e.target.value })}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded px-3 py-2 text-neutral-100 text-sm"
+                  placeholder="e.g., Trina 550W Mono PERC"
                 />
               </div>
 
@@ -843,15 +911,6 @@ export default function BOMManagement() {
                             title="Download BOM as HTML"
                           >
                             <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            onClick={() => handleStockOut(record)}
-                            variant="ghost"
-                            size="sm"
-                            className="text-orange-400 hover:text-orange-300 hover:bg-orange-950/50"
-                            title="Deduct materials from inventory"
-                          >
-                            <PackageMinus className="h-4 w-4" />
                           </Button>
                           <Button
                             onClick={() => handleDelete(record.id)}

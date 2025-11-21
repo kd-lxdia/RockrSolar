@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { AlertTriangle, Package, AlertCircle, TrendingDown, XCircle } from "lucide-react";
+import { AlertTriangle, Package, AlertCircle, TrendingDown, XCircle, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { useInventory } from "@/lib/inventory-store-postgres";
 import { calculateRequiredInventory, findMissingStock } from "@/lib/bom-inventory-tracker";
 
@@ -40,6 +40,20 @@ export function StockAlertsView() {
   const inventory = useInventory();
   const [bomRecords, setBomRecords] = useState<BOMRecord[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
+  const toggleItem = (itemName: string) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemName)) {
+        newSet.delete(itemName);
+      } else {
+        newSet.add(itemName);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     const fetchBOMs = async () => {
@@ -115,10 +129,59 @@ export function StockAlertsView() {
     });
   }, [inventory.events, bomRecords]);
 
+  // Group items by main item name
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, StockItem[]> = {};
+    lowStockItems.forEach(item => {
+      if (!groups[item.item]) {
+        groups[item.item] = [];
+      }
+      groups[item.item].push(item);
+    });
+    return groups;
+  }, [lowStockItems]);
+
   const filteredItems = useMemo(() => {
     if (filterStatus === "all") return lowStockItems;
     return lowStockItems.filter(item => item.status === filterStatus);
   }, [lowStockItems, filterStatus]);
+
+  // Group filtered items by main item name
+  const filteredGroupedItems = useMemo(() => {
+    const groups: Record<string, StockItem[]> = {};
+    filteredItems.forEach(item => {
+      if (!groups[item.item]) {
+        groups[item.item] = [];
+      }
+      groups[item.item].push(item);
+    });
+    return groups;
+  }, [filteredItems]);
+
+  // Apply search filter
+  const searchFilteredGroups = useMemo(() => {
+    if (!searchQuery.trim()) return filteredGroupedItems;
+    
+    const query = searchQuery.toLowerCase();
+    const filtered: Record<string, StockItem[]> = {};
+    
+    Object.entries(filteredGroupedItems).forEach(([itemName, types]) => {
+      // Check if item name matches
+      if (itemName.toLowerCase().includes(query)) {
+        filtered[itemName] = types;
+      } else {
+        // Check if any type matches
+        const matchingTypes = types.filter(type => 
+          type.type.toLowerCase().includes(query)
+        );
+        if (matchingTypes.length > 0) {
+          filtered[itemName] = matchingTypes;
+        }
+      }
+    });
+    
+    return filtered;
+  }, [filteredGroupedItems, searchQuery]);
 
   const stats = useMemo(() => {
     return {
@@ -244,7 +307,17 @@ export function StockAlertsView() {
       </div>
 
       {/* Filter Buttons - More Compact */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-500" />
+          <input
+            type="text"
+            placeholder="Search items or types..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-neutral-900 border border-neutral-800 rounded-md text-sm text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+          />
+        </div>
         <button
           onClick={() => setFilterStatus("all")}
           className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
@@ -297,7 +370,7 @@ export function StockAlertsView() {
         </button>
       </div>
 
-      {/* Stock Alerts List - Compact Card Format */}
+      {/* Stock Alerts List - Hierarchical Format */}
       <Card className="bg-neutral-900/60 border-neutral-800">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -305,57 +378,80 @@ export function StockAlertsView() {
               {filterStatus === "all" ? "All Stock Alerts" : `${filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)} Items`}
             </h2>
             <p className="text-xs text-neutral-500">
-              {filteredItems.length} of {lowStockItems.length} items
+              {Object.keys(searchFilteredGroups).length} items with {Object.values(searchFilteredGroups).flat().length} types
             </p>
           </div>
         </CardHeader>
         <CardContent className="space-y-2">
-          {filteredItems.map((item, idx) => {
-            const itemKey = item.item + "-" + item.type + "-" + idx;
+          {Object.entries(searchFilteredGroups).map(([itemName, types]) => {
+            const isExpanded = expandedItems.has(itemName);
+            const worstStatus = types.reduce((worst, current) => {
+              const order = { missing: 0, insufficient: 1, critical: 2, low: 3 };
+              return order[current.status] < order[worst.status] ? current : worst;
+            }).status;
+            
             return (
-              <div
-                key={itemKey}
-                className={`p-3 rounded-lg border ${getStatusColor(item.status)} transition-all`}
-              >
-                {/* First Row: Item, Type, Supplier */}
-                <div className="flex items-center gap-3 mb-2">
-                  {getStatusIcon(item.status)}
-                  <div className="flex-1 flex items-center gap-3 min-w-0">
-                    <span className="text-sm font-semibold text-neutral-100 truncate">{item.item}</span>
-                    <span className="text-xs text-neutral-400">•</span>
-                    <span className="text-sm text-neutral-300 truncate">{item.type}</span>
-                    <span className="text-xs text-neutral-400">•</span>
-                    <span className="text-sm text-neutral-400 truncate">Main Warehouse</span>
+              <div key={itemName} className="space-y-1">
+                {/* Main Item Row - Clickable */}
+                <div
+                  onClick={() => toggleItem(itemName)}
+                  className={`p-3 rounded-lg border cursor-pointer ${getStatusColor(worstStatus)} transition-all hover:shadow-md`}
+                >
+                  <div className="flex items-center gap-3">
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 text-neutral-400 shrink-0" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" />
+                    )}
+                    {getStatusIcon(worstStatus)}
+                    <span className="text-sm font-semibold text-neutral-100 flex-1">{itemName}</span>
+                    <span className="text-xs text-neutral-400 shrink-0">{types.length} type{types.length > 1 ? 's' : ''}</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase border ${getStatusBadgeColor(worstStatus)} shrink-0`}>
+                      {worstStatus}
+                    </span>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase border ${getStatusBadgeColor(item.status)} shrink-0`}>
-                    {item.status}
-                  </span>
                 </div>
 
-                {/* Second Row: Status Info and Notes in 2 columns */}
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    {item.status === "missing" ? (
-                      <div className="text-red-400 font-semibold">Out of Stock - Stock needed</div>
-                    ) : item.status === "insufficient" ? (
-                      <div className="text-orange-400 font-semibold">
-                        Current: {item.qty} / Required: {item.qty + (item.shortfall || 0)} • Need {item.shortfall} more
+                {/* Expanded Types - Show when item is expanded */}
+                {isExpanded && (
+                  <div className="ml-8 space-y-1">
+                    {types.map((type, idx) => (
+                      <div
+                        key={`${itemName}-${type.type}-${idx}`}
+                        className={`p-3 rounded-lg border ${getStatusColor(type.status)} transition-all`}
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          {getStatusIcon(type.status)}
+                          <span className="text-sm text-neutral-300 flex-1">{type.type}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase border ${getStatusBadgeColor(type.status)} shrink-0`}>
+                            {type.status}
+                          </span>
+                        </div>
+
+                        <div className="text-sm space-y-1">
+                          {type.status === "missing" ? (
+                            <div className="text-red-400 font-semibold">Out of Stock - Stock needed</div>
+                          ) : type.status === "insufficient" ? (
+                            <div className="text-orange-400 font-semibold">
+                              Current: {type.qty} / Required: {type.qty + (type.shortfall || 0)} • Need {type.shortfall} more
+                            </div>
+                          ) : (
+                            <div className={`font-semibold ${type.status === "critical" ? "text-red-400" : "text-yellow-400"}`}>
+                              {type.qty} units left • Reorder soon
+                            </div>
+                          )}
+                          
+                          {type.requiredBy && type.requiredBy.length > 0 && (
+                            <div className="text-xs text-orange-300/80">
+                              <span className="font-medium">Required by:</span> {type.requiredBy.slice(0, 2).join(", ")}
+                              {type.requiredBy.length > 2 && ` +${type.requiredBy.length - 2} more`}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    ) : (
-                      <div className={`font-semibold ${item.status === "critical" ? "text-red-400" : "text-yellow-400"}`}>
-                        {item.qty} units left • Reorder soon
-                      </div>
-                    )}
+                    ))}
                   </div>
-                  <div className="text-right">
-                    {item.requiredBy && item.requiredBy.length > 0 && (
-                      <div className="text-xs text-orange-300/80">
-                        <span className="font-medium">Required by:</span> {item.requiredBy.slice(0, 2).join(", ")}
-                        {item.requiredBy.length > 2 && ` +${item.requiredBy.length - 2} more`}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
             );
           })}

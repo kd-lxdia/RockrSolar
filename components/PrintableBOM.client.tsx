@@ -29,7 +29,7 @@ export default function PrintableBOM({ record }: { record: BOMRecord }) {
     <div className="mb-4 flex items-center justify-between gap-2">
       <div className="text-sm text-neutral-600">
         <div className="font-semibold">{record.name}</div>
-        <div className="text-xs">{record.project_in_kw}kW • {record.phase}</div>
+        <div className="text-xs">{record.project_in_kw}kW • {record.phase}{record.panel_name ? ` • ${record.panel_name}` : ""}</div>
       </div>
       <div className="flex gap-2">
         <Button

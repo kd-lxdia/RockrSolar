@@ -110,3 +110,146 @@ export async function exportCurrentStockToExcel(events: InventoryEvent[]) {
   const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   saveAs(new Blob([wbout], { type: "application/octet-stream" }), "current_stock.xlsx");
 }
+
+/**
+ * Export Stock IN events only
+ */
+export async function exportStockInToExcel(events: InventoryEvent[]) {
+  const inEvents = events.filter(e => e.kind === "IN");
+  
+  // Fetch all HSN mappings via API
+  const response = await fetch('/api/hsn');
+  const hsnData = await response.json();
+  const hsnMappings: Array<{item_name: string, type_name: string, hsn_code: string}> = hsnData.success ? hsnData.data : [];
+  
+  const hsnMap = new Map<string, string>();
+  hsnMappings.forEach((m) => {
+    hsnMap.set(`${m.item_name}::${m.type_name}`, m.hsn_code || '');
+  });
+
+  const rows = inEvents.map((e) => {
+    const hsnKey = `${e.item}::${e.type}`;
+    const hsnCode = hsnMap.get(hsnKey) || "";
+    const timestamp = e.timestamp > 10000000000 ? e.timestamp : e.timestamp * 1000;
+    const date = new Date(timestamp);
+    const isValidDate = !isNaN(date.getTime());
+    
+    return {
+      ID: e.id,
+      Item: e.item,
+      Type: e.type,
+      "HSN Code": hsnCode,
+      Quantity: e.qty,
+      Source: e.source,
+      Invoice: e.supplier,
+      Rate: e.rate,
+      Date: isValidDate ? date.toLocaleDateString() : "Invalid Date",
+      Time: isValidDate ? date.toLocaleTimeString() : "Invalid Time",
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Stock IN");
+
+  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  saveAs(new Blob([wbout], { type: "application/octet-stream" }), "stock_in.xlsx");
+}
+
+/**
+ * Export Stock OUT events only
+ */
+export async function exportStockOutToExcel(events: InventoryEvent[]) {
+  const outEvents = events.filter(e => e.kind === "OUT");
+  
+  // Fetch all HSN mappings via API
+  const response = await fetch('/api/hsn');
+  const hsnData = await response.json();
+  const hsnMappings: Array<{item_name: string, type_name: string, hsn_code: string}> = hsnData.success ? hsnData.data : [];
+  
+  const hsnMap = new Map<string, string>();
+  hsnMappings.forEach((m) => {
+    hsnMap.set(`${m.item_name}::${m.type_name}`, m.hsn_code || '');
+  });
+
+  const rows = outEvents.map((e) => {
+    const hsnKey = `${e.item}::${e.type}`;
+    const hsnCode = hsnMap.get(hsnKey) || "";
+    const timestamp = e.timestamp > 10000000000 ? e.timestamp : e.timestamp * 1000;
+    const date = new Date(timestamp);
+    const isValidDate = !isNaN(date.getTime());
+    
+    return {
+      ID: e.id,
+      Item: e.item,
+      Type: e.type,
+      "HSN Code": hsnCode,
+      Quantity: e.qty,
+      Source: e.source,
+      Invoice: e.supplier,
+      Rate: e.rate,
+      Date: isValidDate ? date.toLocaleDateString() : "Invalid Date",
+      Time: isValidDate ? date.toLocaleTimeString() : "Invalid Time",
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Stock OUT");
+
+  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  saveAs(new Blob([wbout], { type: "application/octet-stream" }), "stock_out.xlsx");
+}
+
+/**
+ * Export events within a date range
+ */
+export async function exportByDateRange(events: InventoryEvent[], startDate: Date, endDate: Date) {
+  const startTime = startDate.getTime();
+  const endTime = endDate.getTime();
+  
+  const filteredEvents = events.filter(e => {
+    const timestamp = e.timestamp > 10000000000 ? e.timestamp : e.timestamp * 1000;
+    return timestamp >= startTime && timestamp <= endTime;
+  });
+  
+  // Fetch all HSN mappings via API
+  const response = await fetch('/api/hsn');
+  const hsnData = await response.json();
+  const hsnMappings: Array<{item_name: string, type_name: string, hsn_code: string}> = hsnData.success ? hsnData.data : [];
+  
+  const hsnMap = new Map<string, string>();
+  hsnMappings.forEach((m) => {
+    hsnMap.set(`${m.item_name}::${m.type_name}`, m.hsn_code || '');
+  });
+
+  const rows = filteredEvents.map((e) => {
+    const hsnKey = `${e.item}::${e.type}`;
+    const hsnCode = hsnMap.get(hsnKey) || "";
+    const timestamp = e.timestamp > 10000000000 ? e.timestamp : e.timestamp * 1000;
+    const date = new Date(timestamp);
+    const isValidDate = !isNaN(date.getTime());
+    
+    return {
+      ID: e.id,
+      Item: e.item,
+      Type: e.type,
+      "HSN Code": hsnCode,
+      Quantity: e.qty,
+      Kind: e.kind,
+      Source: e.source,
+      Invoice: e.supplier,
+      Rate: e.rate,
+      Date: isValidDate ? date.toLocaleDateString() : "Invalid Date",
+      Time: isValidDate ? date.toLocaleTimeString() : "Invalid Time",
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Filtered Events");
+
+  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const fileName = `events_${startDate.toISOString().split('T')[0]}_to_${endDate.toISOString().split('T')[0]}.xlsx`;
+  saveAs(new Blob([wbout], { type: "application/octet-stream" }), fileName);
+}

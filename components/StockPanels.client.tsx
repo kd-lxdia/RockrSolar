@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { exportStockInToExcel, exportStockOutToExcel } from "@/lib/exportExcel";
 
 /* ------------------------------------------------------------------ */
 type GenericDropdownProps = {
@@ -474,6 +475,32 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
       return;
     }
     
+    // Check stock availability for all rows
+    const insufficientStock: string[] = [];
+    const unavailableItems: string[] = [];
+    
+    validRows.forEach(row => {
+      const currentStock = getCurrentStock(row.item, row.type);
+      const requestedQty = Number(row.quantity);
+      
+      if (currentStock === 0) {
+        unavailableItems.push(`${row.item} - ${row.type}`);
+      } else if (currentStock < requestedQty) {
+        insufficientStock.push(`${row.item} - ${row.type} (Available: ${currentStock}, Requested: ${requestedQty})`);
+      }
+    });
+    
+    // Show error if any items are unavailable or insufficient
+    if (unavailableItems.length > 0) {
+      alert(`❌ Items NOT AVAILABLE in stock:\n\n${unavailableItems.join('\n')}\n\nPlease remove these items or add stock first.`);
+      return;
+    }
+    
+    if (insufficientStock.length > 0) {
+      alert(`⚠️ INSUFFICIENT STOCK for:\n\n${insufficientStock.join('\n')}\n\nPlease reduce quantities or add more stock.`);
+      return;
+    }
+    
     try {
       // Process all rows with await
       const promises = validRows.map(row => {
@@ -496,6 +523,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
       // Reset table after all events are saved
       setStockOutRows([]);
       setShowStockOutTable(false);
+      alert('✅ Stock OUT processed successfully!');
     } catch (error) {
       console.error('Error processing stock out:', error);
       alert('Failed to process stock out. Check console for details.');
@@ -665,6 +693,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
               value={stockInDate}
               onChange={(e) => setStockInDate(e.target.value)}
               onKeyPress={handleKeyPress}
+              max={new Date().toISOString().split('T')[0]}
               className="bg-neutral-900 border-neutral-800 text-neutral-100"
             />
             <Input
@@ -694,12 +723,22 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
             />
           </div>
 
-          <Button
-            className="bg-blue-600 hover:bg-blue-500"
-            onClick={handleStockIn}
-          >
-            Add Stock
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              className="bg-blue-600 hover:bg-blue-500 flex-1"
+              onClick={handleStockIn}
+            >
+              Add Stock
+            </Button>
+            {mode === "in" && (
+              <Button
+                className="bg-green-600 hover:bg-green-500"
+                onClick={async () => await exportStockInToExcel(inv.events)}
+              >
+                📥 Export Stock IN
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
       )}
@@ -838,6 +877,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
                             value={row.date}
                             onChange={(e) => updateStockOutRow(index, 'date', e.target.value)}
                             onKeyDown={(e) => handleStockOutKeyPress(e, index)}
+                            max={new Date().toISOString().split('T')[0]}
                             className="bg-neutral-900 border-neutral-800 text-neutral-100 w-32"
                           />
                         </TableCell>
@@ -866,13 +906,21 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
                 </div>
               </div>
               
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button
                   className="bg-green-600 hover:bg-green-500"
                   onClick={processStockOutTable}
                 >
                   Process All Stock Out
                 </Button>
+                {mode === "out" && (
+                  <Button
+                    className="bg-orange-600 hover:bg-orange-500"
+                    onClick={async () => await exportStockOutToExcel(inv.events)}
+                  >
+                    📤 Export Stock OUT
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   className="border-neutral-600 text-neutral-300 hover:bg-neutral-800"

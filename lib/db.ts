@@ -24,6 +24,7 @@ export interface BOMRecord {
   name: string;
   project_in_kw: number;
   wattage_of_panels: number;
+  panel_name?: string;
   table_option: string;
   phase: "SINGLE" | "TRIPLE";
   ac_wire: string;
@@ -130,6 +131,25 @@ export async function initDatabase() {
     
     await sql`CREATE INDEX IF NOT EXISTS idx_bom_name ON bom(name);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_bom_created_at ON bom(created_at);`;
+
+    // Create BOM edits table for storing user modifications
+    await sql`
+      CREATE TABLE IF NOT EXISTS bom_edits (
+        id SERIAL PRIMARY KEY,
+        bom_id VARCHAR(255) NOT NULL,
+        edited_data TEXT NOT NULL,
+        updated_at BIGINT NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS idx_bom_edits_bom_id ON bom_edits(bom_id);`;
+
+    // Add panel_name column if it doesn't exist (migration)
+    try {
+      await sql`ALTER TABLE bom ADD COLUMN IF NOT EXISTS panel_name VARCHAR(255);`;
+    } catch (e) {
+      // Column might already exist, ignore error
+      console.log('panel_name column already exists or error:', e);
+    }
 
     console.log('Database tables initialized successfully');
     return { success: true };
@@ -387,13 +407,13 @@ export async function addBOMRecord(bom: BOMRecord) {
     return mockDb.addBOMRecord(bom);
   }
   await sql`
-    INSERT INTO bom (id, name, project_in_kw, wattage_of_panels, table_option, phase, 
+    INSERT INTO bom (id, name, project_in_kw, wattage_of_panels, panel_name, table_option, phase, 
                      ac_wire, dc_wire, la_wire, earthing_wire, no_of_legs, 
                      front_leg, back_leg, roof_design, created_at)
     VALUES (${bom.id}, ${bom.name}, ${bom.project_in_kw}, ${bom.wattage_of_panels}, 
-            ${bom.table_option}, ${bom.phase}, ${bom.ac_wire}, ${bom.dc_wire}, 
-            ${bom.la_wire}, ${bom.earthing_wire}, ${bom.no_of_legs}, 
-            ${bom.front_leg}, ${bom.back_leg}, ${bom.roof_design}, ${bom.created_at});
+            ${bom.panel_name || null}, ${bom.table_option}, ${bom.phase}, ${bom.ac_wire || ''}, ${bom.dc_wire || ''}, 
+            ${bom.la_wire || ''}, ${bom.earthing_wire || ''}, ${bom.no_of_legs || 0}, 
+            ${bom.front_leg || ''}, ${bom.back_leg || ''}, ${bom.roof_design || ''}, ${bom.created_at});
   `;
 }
 
