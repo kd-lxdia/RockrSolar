@@ -523,6 +523,7 @@ export default function BOMManagement() {
     }
   };
 
+  /* Removed - Stock Out now handled in Pipeline view
   const handleStockOut = async (record: BOMRecord) => {
     const confirmMsg = `This will deduct all materials from this BOM from your inventory:\n\n` +
       `• AC Wire: ${record.ac_wire || "N/A"}\n` +

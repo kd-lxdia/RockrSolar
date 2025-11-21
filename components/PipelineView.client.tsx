@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useInventory } from "@/lib/inventory-store-postgres";
-import { generateBOMRows, BOMRecord, BOMRow } from "@/lib/bom-calculations";
+import { generateBOMRows, BOMRecord } from "@/lib/bom-calculations";
 import { CheckCircle, XCircle, AlertTriangle, Loader2, PackageMinus } from "lucide-react";
 
 interface PipelineBOM extends BOMRecord {
@@ -17,7 +17,6 @@ export default function PipelineView() {
   const { events, isLoading: isInventoryLoading, addEvent, refreshData } = useInventory();
   const [boms, setBoms] = useState<BOMRecord[]>([]);
   const [isLoadingBoms, setIsLoadingBoms] = useState(true);
-  const [selectedBOM, setSelectedBOM] = useState<PipelineBOM | null>(null);
   const [showStockOutPopup, setShowStockOutPopup] = useState(false);
   const [stockOutMessage, setStockOutMessage] = useState("");
   const [isStockingOut, setIsStockingOut] = useState(false);
@@ -234,7 +233,6 @@ export default function PipelineView() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setSelectedBOM(bom)}
                         className="border-blue-600 text-blue-400 hover:bg-blue-950"
                       >
                         View Details

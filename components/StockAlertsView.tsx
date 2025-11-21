@@ -129,8 +129,8 @@ export function StockAlertsView() {
     });
   }, [inventory.events, bomRecords]);
 
-  // Group items by main item name
-  const groupedItems = useMemo(() => {
+  // Group items by main item name (kept for potential future use)
+  /* const groupedItems = useMemo(() => {
     const groups: Record<string, StockItem[]> = {};
     lowStockItems.forEach(item => {
       if (!groups[item.item]) {
@@ -139,7 +139,7 @@ export function StockAlertsView() {
       groups[item.item].push(item);
     });
     return groups;
-  }, [lowStockItems]);
+  }, [lowStockItems]); */
 
   const filteredItems = useMemo(() => {
     if (filterStatus === "all") return lowStockItems;
