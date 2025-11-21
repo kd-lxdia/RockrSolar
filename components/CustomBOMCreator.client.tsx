@@ -76,6 +76,7 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
       qty: ""
     }))
   );
+  const [newTypeInputs, setNewTypeInputs] = useState<{ [key: number]: string }>({});
 
   // Get types for a specific item
   const getTypesForItem = (itemName: string) => {
@@ -193,34 +194,79 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
                             <ChevronDown className="h-3 w-3 ml-1 flex-shrink-0" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent className="bg-neutral-900 border-neutral-700 text-neutral-100 max-h-60 overflow-y-auto">
-                          {getTypesForItem(row.item).map((t) => (
-                            <div
-                              key={t}
-                              onClick={() => handleCellChange(index, 'description', t)}
-                              className="px-3 py-2 hover:bg-neutral-800 cursor-pointer text-sm"
-                            >
-                              {t}
-                            </div>
-                          ))}
-                          
-                          {getTypesForItem(row.item).length === 0 && (
-                            <div className="px-3 py-2 text-sm text-neutral-500 italic">
-                              No types available for this item
-                            </div>
-                          )}
+                        <DropdownMenuContent className="bg-[#1a1d24] border-neutral-700 text-neutral-100 min-w-[200px] max-h-80 overflow-hidden p-0">
+                          {/* Types List */}
+                          <div className="max-h-60 overflow-y-auto">
+                            {getTypesForItem(row.item).length > 0 && (
+                              <div className="py-1">
+                                <div className="px-3 py-1.5 text-xs font-semibold text-neutral-400">Choose</div>
+                                {getTypesForItem(row.item).map((t) => (
+                                  <div
+                                    key={t}
+                                    className="group flex items-center justify-between px-3 py-2 hover:bg-neutral-800 cursor-pointer"
+                                  >
+                                    <span
+                                      onClick={() => handleCellChange(index, 'description', t)}
+                                      className="flex-1 text-sm text-neutral-200"
+                                    >
+                                      {t}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        inv.removeType(row.item, t);
+                                      }}
+                                      className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity p-1"
+                                      title="Remove type"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {getTypesForItem(row.item).length === 0 && (
+                              <div className="px-3 py-3 text-sm text-neutral-500 italic text-center">
+                                No types available
+                              </div>
+                            )}
+                          </div>
 
-                          <DropdownMenuSeparator className="bg-neutral-700" />
-
-                          <div className="px-2 py-2">
-                            <input
-                              type="text"
-                              value={row.description}
-                              onChange={(e) => handleCellChange(index, 'description', e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              placeholder="Or type custom..."
-                              className="w-full px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                            />
+                          {/* Add New Type */}
+                          <div className="sticky bottom-0 bg-[#1a1d24] border-t border-neutral-700 p-2">
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={newTypeInputs[index] || ''}
+                                onChange={(e) => setNewTypeInputs({ ...newTypeInputs, [index]: e.target.value })}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter' && newTypeInputs[index]?.trim() && row.item) {
+                                    inv.addType(row.item, newTypeInputs[index].trim());
+                                    handleCellChange(index, 'description', newTypeInputs[index].trim());
+                                    setNewTypeInputs({ ...newTypeInputs, [index]: '' });
+                                  }
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder="Add type"
+                                disabled={!row.item}
+                                className="flex-1 px-2 py-1.5 bg-neutral-900 border border-neutral-700 rounded text-sm text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-blue-600 disabled:bg-neutral-800 disabled:text-neutral-600"
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (newTypeInputs[index]?.trim() && row.item) {
+                                    inv.addType(row.item, newTypeInputs[index].trim());
+                                    handleCellChange(index, 'description', newTypeInputs[index].trim());
+                                    setNewTypeInputs({ ...newTypeInputs, [index]: '' });
+                                  }
+                                }}
+                                disabled={!row.item || !newTypeInputs[index]?.trim()}
+                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-600 text-white rounded text-sm font-medium transition-colors"
+                              >
+                                +
+                              </button>
+                            </div>
                           </div>
                         </DropdownMenuContent>
                       </DropdownMenu>

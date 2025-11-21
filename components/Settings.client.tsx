@@ -331,21 +331,84 @@ export default function Settings() {
                 </div>
                 <ChevronDown size={14} className="text-neutral-500" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="min-w-[200px] bg-[#121317] border-neutral-800 text-neutral-100 max-h-60 overflow-y-auto">
-                {inv.items.map((item) => (
-                  <DropdownMenuItem
-                    key={item}
-                    onClick={() => setSelectedItemForType(item)}
-                    className="text-neutral-100 cursor-pointer hover:bg-neutral-800"
-                  >
-                    {item}
-                  </DropdownMenuItem>
-                ))}
-                {inv.items.length === 0 && (
-                  <div className="px-3 py-2 text-sm text-neutral-500 italic">
-                    No items available
+              <DropdownMenuContent className="min-w-[250px] bg-[#1a1d24] border-neutral-800 text-neutral-100 max-h-80 overflow-hidden p-0">
+                {/* Search Input */}
+                <div className="sticky top-0 bg-[#1a1d24] border-b border-neutral-800 p-2">
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded text-sm text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                
+                {/* Items List */}
+                <div className="max-h-60 overflow-y-auto">
+                  <div className="py-1">
+                    <div className="px-3 py-1.5 text-xs font-semibold text-neutral-400">Choose</div>
+                    {inv.items.map((item) => (
+                      <div
+                        key={item}
+                        className="group flex items-center justify-between px-3 py-2 hover:bg-neutral-800 cursor-pointer"
+                      >
+                        <span 
+                          onClick={() => setSelectedItemForType(item)}
+                          className="flex-1 text-sm text-neutral-100"
+                        >
+                          {item}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            inv.removeItem(item);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity p-1"
+                          title="Remove item"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    {inv.items.length === 0 && (
+                      <div className="px-3 py-2 text-sm text-neutral-500 italic">
+                        No items available
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+                
+                {/* Add New Item */}
+                <div className="sticky bottom-0 bg-[#1a1d24] border-t border-neutral-800 p-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Add item"
+                      value={newItemName}
+                      onChange={(e) => setNewItemName(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && newItemName.trim()) {
+                          inv.addItem(newItemName.trim());
+                          setNewItemName('');
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 px-2 py-1.5 bg-neutral-900 border border-neutral-800 rounded text-sm text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (newItemName.trim()) {
+                          inv.addItem(newItemName.trim());
+                          setNewItemName('');
+                        }
+                      }}
+                      disabled={!newItemName.trim()}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-600 text-white rounded text-sm font-medium transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
 
