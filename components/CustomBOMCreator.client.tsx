@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Save, X } from "lucide-react";
+import { Plus, Trash2, Save, X, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { useInventory } from "@/lib/inventory-store-postgres";
 
 interface CustomBOMRow {
   sr: number;
@@ -63,6 +66,7 @@ interface CustomBOMCreatorProps {
 }
 
 export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorProps) {
+  const inv = useInventory();
   const [bomName, setBomName] = useState("");
   const [rows, setRows] = useState<CustomBOMRow[]>(
     DEFAULT_BOM_ITEMS.map((item, index) => ({
@@ -73,6 +77,11 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
       qty: ""
     }))
   );
+
+  // Get types for a specific item
+  const getTypesForItem = (itemName: string) => {
+    return inv.getTypesForItem(itemName);
+  };
 
   const handleCellChange = (index: number, field: keyof CustomBOMRow, value: string) => {
     const newRows = [...rows];
@@ -177,13 +186,45 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
                       />
                     </TableCell>
                     <TableCell>
-                      <input
-                        type="text"
-                        value={row.description}
-                        onChange={(e) => handleCellChange(index, 'description', e.target.value)}
-                        className="w-full px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                        placeholder="Description"
-                      />
+                      {/* Type/Description Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="w-full px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200 hover:bg-neutral-750 focus:outline-none focus:ring-1 focus:ring-blue-600 flex items-center justify-between">
+                            <span className="truncate">{row.description || "Select type..."}</span>
+                            <ChevronDown className="h-3 w-3 ml-1 flex-shrink-0" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="bg-neutral-900 border-neutral-700 text-neutral-100 max-h-60 overflow-y-auto">
+                          {getTypesForItem(row.item).map((t) => (
+                            <div
+                              key={t}
+                              onClick={() => handleCellChange(index, 'description', t)}
+                              className="px-3 py-2 hover:bg-neutral-800 cursor-pointer text-sm"
+                            >
+                              {t}
+                            </div>
+                          ))}
+                          
+                          {getTypesForItem(row.item).length === 0 && (
+                            <div className="px-3 py-2 text-sm text-neutral-500 italic">
+                              No types available for this item
+                            </div>
+                          )}
+
+                          <DropdownMenuSeparator className="bg-neutral-700" />
+
+                          <div className="px-2 py-2">
+                            <input
+                              type="text"
+                              value={row.description}
+                              onChange={(e) => handleCellChange(index, 'description', e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              placeholder="Or type custom..."
+                              className="w-full px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                            />
+                          </div>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                     <TableCell>
                       <input

@@ -320,15 +320,18 @@ export default function Settings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">
+            {/* Item Dropdown with Add/Remove */}
             <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 text-neutral-200 px-3 py-2 rounded-md text-sm">
-                <span className="text-neutral-400">Item:</span>
-                <span className="font-medium text-neutral-100">
-                  {selectedItemForType || "Select Item"}
-                </span>
-                <ChevronDown size={14} className="text-neutral-500 ml-auto" />
+              <DropdownMenuTrigger className="inline-flex items-center justify-between gap-2 bg-neutral-900 border border-neutral-800 text-neutral-200 px-3 py-2 rounded-md text-sm min-w-[200px]">
+                <div className="flex items-center gap-2">
+                  <span className="text-neutral-400">Item:</span>
+                  <span className="font-medium text-neutral-100">
+                    {selectedItemForType || "Select Item"}
+                  </span>
+                </div>
+                <ChevronDown size={14} className="text-neutral-500" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="min-w-56 bg-[#121317] border-neutral-800 text-neutral-100">
+              <DropdownMenuContent className="min-w-[200px] bg-[#121317] border-neutral-800 text-neutral-100 max-h-60 overflow-y-auto">
                 {inv.items.map((item) => (
                   <DropdownMenuItem
                     key={item}
@@ -338,8 +341,14 @@ export default function Settings() {
                     {item}
                   </DropdownMenuItem>
                 ))}
+                {inv.items.length === 0 && (
+                  <div className="px-3 py-2 text-sm text-neutral-500 italic">
+                    No items available
+                  </div>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
+
             <Input
               type="text"
               value={newTypeName}
@@ -357,23 +366,55 @@ export default function Settings() {
               Add Type
             </Button>
           </div>
+
+          {/* Types Display with Dropdown to Remove */}
           <div className="space-y-2">
             {inv.items.map(item => {
               const types = inv.getTypesForItem(item);
               if (types.length === 0) return null;
               return (
                 <div key={item} className="bg-neutral-800/50 p-3 rounded-md">
-                  <div className="text-sm font-medium text-neutral-300 mb-2">{item}</div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-medium text-neutral-300">{item}</div>
+                    
+                    {/* Type Management Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-neutral-700 text-neutral-400 hover:bg-neutral-800 h-7 text-xs"
+                        >
+                          Manage Types <ChevronDown size={12} className="ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="bg-neutral-900 border-neutral-700 text-neutral-100 max-h-60 overflow-y-auto min-w-[200px]">
+                        <div className="px-2 py-1 text-xs text-neutral-500 font-medium">
+                          Remove Types:
+                        </div>
+                        {types.map((type) => (
+                          <div
+                            key={type}
+                            className="flex items-center justify-between px-3 py-2 hover:bg-neutral-800 group"
+                          >
+                            <span className="text-sm text-neutral-200">{type}</span>
+                            <button
+                              onClick={() => handleRemoveType(item, type)}
+                              className="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                              aria-label={`Remove ${type}`}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  
                   <div className="flex flex-wrap gap-2">
                     {types.map(type => (
-                      <div key={type} className="flex items-center gap-1 bg-neutral-900 px-2 py-1 rounded text-xs">
-                        <span className="text-neutral-200">{type}</span>
-                        <button
-                          onClick={() => handleRemoveType(item, type)}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
+                      <div key={type} className="bg-neutral-900 px-2 py-1 rounded text-xs text-neutral-200">
+                        {type}
                       </div>
                     ))}
                   </div>
