@@ -13,10 +13,10 @@ const pool = new Pool({
 });
 
 // SQL template tag function that mimics @vercel/postgres
-export function sql(strings: TemplateStringsArray, ...values: any[]) {
+export function sql(strings: TemplateStringsArray, ...values: unknown[]) {
   // Convert template literal to parameterized query
   let text = '';
-  const params: any[] = [];
+  const params: unknown[] = [];
   
   strings.forEach((str, i) => {
     text += str;
