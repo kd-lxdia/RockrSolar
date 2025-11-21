@@ -1,9 +1,10 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Printer, X } from "lucide-react";
+import { Download, Printer, X, FileSpreadsheet, Save, Plus, Trash2 } from "lucide-react";
 import type { BOMRecord } from "@/lib/db";
 import { generateBOMRows } from "@/lib/bom-calculations";
+import * as XLSX from "xlsx";
 
 interface BOMRow {
   sr: number;
@@ -93,6 +94,111 @@ export default function EditableBOM({ record }: { record: BOMRecord }) {
     }
   };
 
+  const handleExportToExcel = () => {
+    try {
+      // Prepare data for Excel
+      const excelData = bomRows.map(row => ({
+        "SR NO": row.sr,
+        "ITEM": row.item,
+        "DESCRIPTION": row.description,
+        "MAKE": row.make,
+        "QTY": row.qty,
+        "UNIT": row.unit
+      }));
+
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 8 },  // SR NO
+        { wch: 25 }, // ITEM
+        { wch: 40 }, // DESCRIPTION
+        { wch: 20 }, // MAKE
+        { wch: 10 }, // QTY
+        { wch: 10 }  // UNIT
+      ];
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "BOM");
+
+      // Add metadata sheet
+      const metadata = [
+        ["BOM Details", ""],
+        ["Project Name", record.name],
+        ["Capacity", `${record.project_in_kw} kW`],
+        ["Panel Wattage", `${record.wattage_of_panels}W`],
+        ["Panel Name", record.panel_name || "N/A"],
+        ["Phase", record.phase],
+        ["Table Option", record.table_option || "N/A"],
+        ["Number of Legs", record.no_of_legs || "N/A"],
+        ["Generated", new Date(record.created_at).toLocaleString()],
+        ["Last Modified", lastSaved ? lastSaved.toLocaleString() : "Not modified"]
+      ];
+      const wsMetadata = XLSX.utils.aoa_to_sheet(metadata);
+      wsMetadata['!cols'] = [{ wch: 20 }, { wch: 30 }];
+      XLSX.utils.book_append_sheet(wb, wsMetadata, "Project Info");
+
+      // Download file
+      const fileName = `BOM_${record.name.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      
+      console.log('✅ Exported BOM to Excel:', fileName);
+    } catch (error) {
+      console.error('Failed to export to Excel:', error);
+      alert('Failed to export to Excel. Please try again.');
+    }
+  };
+
+  const handleSaveToDatabase = async () => {
+    try {
+      const response = await fetch(`/api/bom/${record.id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: bomRows })
+      });
+      
+      if (response.ok) {
+        setLastSaved(new Date());
+        alert('✅ BOM saved to database successfully!');
+      } else {
+        throw new Error('Failed to save to database');
+      }
+    } catch (error) {
+      console.error('Failed to save to database:', error);
+      alert('⚠️ Could not save to database. Changes are saved locally.');
+    }
+  };
+
+  const handleAddRow = () => {
+    const newRow: BOMRow = {
+      sr: bomRows.length + 1,
+      item: "",
+      description: "",
+      make: "",
+      qty: "",
+      unit: "Nos"
+    };
+    const updatedRows = [...bomRows, newRow];
+    setBomRows(updatedRows);
+    saveChanges(updatedRows);
+  };
+
+  const handleDeleteRow = (index: number) => {
+    if (bomRows.length <= 1) {
+      alert('Cannot delete the last row');
+      return;
+    }
+    const updatedRows = bomRows.filter((_, i) => i !== index);
+    // Renumber rows
+    updatedRows.forEach((row, i) => {
+      row.sr = i + 1;
+    });
+    setBomRows(updatedRows);
+    saveChanges(updatedRows);
+  };
+
   return (
     <>
       <style dangerouslySetInnerHTML={{__html: `
@@ -131,12 +237,36 @@ export default function EditableBOM({ record }: { record: BOMRecord }) {
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button
+              onClick={handleAddRow}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              size="sm"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Row
+            </Button>
+            <Button
+              onClick={handleSaveToDatabase}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+              size="sm"
+            >
+              <Save className="mr-2 h-4 w-4" />
+              Save to Database
+            </Button>
+            <Button
+              onClick={handleExportToExcel}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              size="sm"
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Export to Excel
+            </Button>
+            <Button
               onClick={handleReset}
               className="bg-red-600 hover:bg-red-700 text-white"
               size="sm"
             >
               <X className="mr-2 h-4 w-4" />
-              Reset to Original
+              Reset
             </Button>
             <Button
               onClick={handlePrint}
@@ -152,7 +282,7 @@ export default function EditableBOM({ record }: { record: BOMRecord }) {
               size="sm"
             >
               <Download className="mr-2 h-4 w-4" />
-              Save as PDF
+              PDF
             </Button>
           </div>
         </div>
@@ -185,6 +315,7 @@ export default function EditableBOM({ record }: { record: BOMRecord }) {
                 <th className="border-2 border-black px-3 py-2 text-left font-bold text-sm" style={{ width: '150px' }}>MAKE</th>
                 <th className="border-2 border-black px-3 py-2 text-center font-bold text-sm" style={{ width: '80px' }}>QTY</th>
                 <th className="border-2 border-black px-3 py-2 text-center font-bold text-sm" style={{ width: '80px' }}>UNIT</th>
+                <th className="border-2 border-black px-3 py-2 text-center font-bold text-sm no-print" style={{ width: '60px' }}>ACTION</th>
               </tr>
             </thead>
             <tbody>
@@ -235,6 +366,15 @@ export default function EditableBOM({ record }: { record: BOMRecord }) {
                       className="w-full px-1 py-0.5 border border-blue-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                       placeholder="Unit"
                     />
+                  </td>
+                  <td className="border border-black px-2 py-2 text-center no-print">
+                    <button
+                      onClick={() => handleDeleteRow(idx)}
+                      className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1 rounded transition-colors"
+                      title="Delete row"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
