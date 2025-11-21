@@ -321,9 +321,9 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
   }, [inv.items.length]);
 
   // Report filters
-  const [reportSource, setReportSource] = React.useState<string>("All");
-  const [reportFrom, setReportFrom] = React.useState<string>("");
-  const [reportTo, setReportTo] = React.useState<string>("");
+  const reportSource = "All"; // eslint-disable-line @typescript-eslint/no-unused-vars
+  const reportFrom = ""; // eslint-disable-line @typescript-eslint/no-unused-vars
+  const reportTo = ""; // eslint-disable-line @typescript-eslint/no-unused-vars
 
   const handleStockIn = async () => {
     console.log('Stock In clicked:', { item, type, qin, stockInPrice, stockInSource, invoiceNo });
@@ -572,7 +572,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
 
   const reportResults = buildReport();
 
-  const handleDownloadExcel = () => {
+  const handleDownloadExcel = () => { // eslint-disable-line @typescript-eslint/no-unused-vars
     const rows = reportResults.map((r) => {
       // Find the original event to get the "kind" field
       const event = inv.events.find(e => e.id === r.id);
