@@ -570,6 +570,7 @@ export default function BOMManagement() {
       alert("❌ Network error. Please check your connection and try again.");
     }
   };
+  */
 
   if (isLoading) {
     return (
