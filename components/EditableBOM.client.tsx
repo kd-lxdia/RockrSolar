@@ -17,7 +17,7 @@ interface BOMRow {
 export default function EditableBOM({ record }: { record: BOMRecord }) {
   const initialRows = generateBOMRows(record);
   const [bomRows, setBomRows] = useState<BOMRow[]>(initialRows);
-  const [lastSaved, setLastSaved] = useState<Date>(new Date());
+  const [lastSaved, setLastSaved] = useState<Date | null>(new Date());
 
   const handleCellChange = (rowIndex: number, field: keyof BOMRow, value: string) => {
     const updatedRows = [...bomRows];
@@ -127,7 +127,7 @@ export default function EditableBOM({ record }: { record: BOMRecord }) {
           <div className="text-sm text-neutral-600">
             <div className="font-semibold">{record.name}</div>
             <div className="text-xs">{record.project_in_kw}kW • {record.phase}{record.panel_name ? ` • ${record.panel_name}` : ""}</div>
-            <div className="text-xs text-green-600 mt-1">Auto-saved: {lastSaved.toLocaleTimeString()}</div>
+            {lastSaved && <div className="text-xs text-green-600 mt-1">Auto-saved: {lastSaved.toLocaleTimeString()}</div>}
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button
