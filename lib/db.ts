@@ -1,5 +1,5 @@
 // PostgreSQL database connection and utilities
-import { sql } from '@vercel/postgres';
+import { sql } from './db-client';
 import * as mockDb from './db-mock';
 
 // Check if we should use mock database (evaluated at runtime)
