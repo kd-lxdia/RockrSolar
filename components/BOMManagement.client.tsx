@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Download, Plus, FileText, FileSpreadsheet } from "lucide-react";
+import { Trash2, Download, Plus, FileText, FileSpreadsheet, Edit } from "lucide-react";
 import * as XLSX from "xlsx";
 import CustomBOMCreator from "./CustomBOMCreator.client";
 
@@ -897,13 +897,13 @@ export default function BOMManagement() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
-                            onClick={() => openBOMForPrint(record)}
+                            onClick={() => window.open(`/bom/${record.id}`, '_blank')}
                             variant="ghost"
                             size="sm"
                             className="text-blue-400 hover:text-blue-300 hover:bg-blue-950/50"
-                            title="View/Print BOM"
+                            title="Edit BOM (View, Edit, Print, Export)"
                           >
-                            <FileText className="h-4 w-4" />
+                            <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             onClick={() => exportBOMAsHTML(record)}

@@ -4,7 +4,8 @@ import * as mockDb from './db-mock';
 
 // Check if we should use mock database (evaluated at runtime)
 function shouldUseMockDb() {
-  return !process.env.POSTGRES_URL;
+  // Use mock DB if POSTGRES_URL is not set OR if explicitly enabled
+  return !process.env.POSTGRES_URL || process.env.USE_MOCK_DB === 'true';
 }
 
 export interface InventoryEvent {

@@ -1,7 +1,7 @@
 // Database client wrapper for AWS RDS PostgreSQL
 import { Pool } from 'pg';
 
-// Create a PostgreSQL connection pool
+// Create a PostgreSQL connection pool with faster timeout for production
 const pool = new Pool({
   connectionString: process.env.POSTGRES_URL,
   ssl: {
@@ -9,7 +9,8 @@ const pool = new Pool({
   },
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 5000, // Increased from 2s to 5s
+  query_timeout: 10000, // 10s query timeout
 });
 
 // SQL template tag function that mimics @vercel/postgres
