@@ -201,6 +201,22 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
   // Selection - start with undefined to avoid showing deleted items
   const [item, setItem] = React.useState<string | undefined>(undefined);
   const [type, setType] = React.useState<string>("");
+  
+  // Track expanded items in total stock view
+  const [expandedItems, setExpandedItems] = React.useState<Set<string>>(new Set());
+  
+  // Toggle function for expanding/collapsing items
+  const toggleItemExpansion = (itemName: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemName)) {
+        next.delete(itemName);
+      } else {
+        next.add(itemName);
+      }
+      return next;
+    });
+  };
 
   const types = item ? inv.getTypesForItem(item) : [];
 
@@ -612,11 +628,11 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
     <div className={`grid gap-4 ${
       mode === "in" ? "grid-cols-1" : 
       mode === "out" ? "grid-cols-1" : 
-      "grid-cols-1 md:grid-cols-3"
+      "grid-cols-1"
     }`}>
-      {/* STOCK IN - Show only on 'in' or 'total' mode */}
-      {(mode === "in" || mode === "total") && (
-        <Card className={`bg-neutral-900/60 border-neutral-800 ${mode === "total" ? "md:col-span-1" : ""}`}>
+      {/* STOCK IN - Show only on 'in' mode */}
+      {mode === "in" && (
+        <Card className="bg-neutral-900/60 border-neutral-800">
           <CardHeader>
             <CardTitle className="text-xs tracking-wider text-neutral-400">
               STOCK IN
@@ -743,9 +759,9 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
       </Card>
       )}
 
-      {/* STOCK OUT - Show only on 'out' or 'total' mode */}
-      {(mode === "out" || mode === "total") && (
-        <Card className={`bg-neutral-900/60 border-neutral-800 ${mode === "total" ? "md:col-span-2" : ""}`}>
+      {/* STOCK OUT - Show only on 'out' mode */}
+      {mode === "out" && (
+        <Card className="bg-neutral-900/60 border-neutral-800">
           <CardHeader>
             <CardTitle className="text-xs tracking-wider text-neutral-400">
               STOCK OUT
@@ -938,50 +954,76 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
       </Card>
       )}
 
-
-      {/* REPORT - Show only on 'total' mode */}
+      {/* TOTAL STOCK - Expandable Items with Types */}
       {mode === "total" && (
-        <Card className="bg-neutral-900/60 border-neutral-800 md:col-span-3">
+        <Card className="bg-neutral-900/60 border-neutral-800">
           <CardHeader>
             <CardTitle className="text-xs tracking-wider text-neutral-400">
-              REPORT & EXPORT
+              TOTAL STOCK
             </CardTitle>
           </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 mb-4">
-            <Input
-              type="date"
-              value={reportFrom}
-              onChange={(e) => setReportFrom(e.target.value)}
-              className="bg-neutral-900 border-neutral-800 text-neutral-100"
-            />
-            <Input
-              type="date"
-              value={reportTo}
-              onChange={(e) => setReportTo(e.target.value)}
-              className="bg-neutral-900 border-neutral-800 text-neutral-100"
-            />
-            <select
-              value={reportSource}
-              onChange={(e) => setReportSource(e.target.value)}
-              className="bg-neutral-900 border border-neutral-800 rounded px-3 py-2 text-neutral-100"
-            >
-              <option value="All">All</option>
-              {inv.sources.map((src) => (
-                <option key={src} value={src}>
-                  {src}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button
-            className="bg-green-600 hover:bg-green-500"
-            onClick={handleDownloadExcel}
-          >
-            Download Excel
-          </Button>
-        </CardContent>
-      </Card>
+          <CardContent>
+            <div className="space-y-2">
+              {inv.items.map((item) => {
+                const types = inv.getTypesForItem(item);
+                const isExpanded = expandedItems.has(item);
+                
+                return (
+                  <div key={item} className="border border-neutral-800 rounded-md overflow-hidden">
+                    {/* Item Header - Clickable */}
+                    <button
+                      onClick={() => toggleItemExpansion(item)}
+                      className="w-full px-4 py-3 bg-neutral-800/50 hover:bg-neutral-800 flex items-center justify-between text-left transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <ChevronDown 
+                          className={`h-4 w-4 text-neutral-400 transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
+                        />
+                        <span className="text-sm font-medium text-neutral-200">{item}</span>
+                        <span className="text-xs text-neutral-500">({types.length} types)</span>
+                      </div>
+                    </button>
+                    
+                    {/* Types List - Expandable */}
+                    {isExpanded && (
+                      <div className="bg-neutral-900/40">
+                        {types.map((type) => {
+                          const stock = getCurrentStock(item, type);
+                          return (
+                            <div 
+                              key={type} 
+                              className="px-4 py-2 flex items-center justify-between border-t border-neutral-800 hover:bg-neutral-800/30"
+                            >
+                              <span className="text-sm text-neutral-300">{type}</span>
+                              <span className={`text-sm font-semibold px-3 py-1 rounded ${
+                                stock === 0 ? 'bg-red-900 text-red-300' :
+                                stock < 10 ? 'bg-yellow-900 text-yellow-300' :
+                                'bg-green-900 text-green-300'
+                              }`}>
+                                {stock}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {types.length === 0 && (
+                          <div className="px-4 py-3 text-sm text-neutral-500 italic text-center">
+                            No types available for this item
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              
+              {inv.items.length === 0 && (
+                <div className="text-center py-8 text-neutral-500">
+                  No items in inventory. Add items using Stock IN.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
