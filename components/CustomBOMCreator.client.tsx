@@ -80,22 +80,38 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
   const [panelWattage, setPanelWattage] = useState<number>(0);
   const [projectKW, setProjectKW] = useState<number>(0);
 
-  // Extract wattage from panel type (e.g., "550W Mono" -> 550)
+  // Extract wattage from panel type (e.g., "550W Mono" -> 550, "600 W Poly" -> 600)
   const extractWattageFromType = (type: string): number => {
-    const match = type.match(/(\d+)\s*W/i);
-    return match ? parseInt(match[1]) : 0;
+    if (!type) return 0;
+    // Match patterns like: 550W, 550 W, 550w, 550 w
+    const match = type.match(/(\d+)\s*[Ww]/);
+    return match ? parseInt(match[1], 10) : 0;
   };
 
   // Calculate project KW whenever Solar Panel row changes
   React.useEffect(() => {
-    const solarPanelRow = rows.find(row => row.item.toLowerCase().includes('solar panel'));
-    if (solarPanelRow) {
+    const solarPanelRow = rows.find(row => 
+      row.item && row.item.toLowerCase().includes('solar panel')
+    );
+    
+    if (solarPanelRow && solarPanelRow.description) {
       const wattage = extractWattageFromType(solarPanelRow.description);
       const quantity = parseFloat(solarPanelRow.qty) || 0;
-      const kw = (wattage * quantity) / 1000;
+      const kw = quantity > 0 && wattage > 0 ? (wattage * quantity) / 1000 : 0;
+      
+      console.log('🔋 Panel Calculation:', {
+        description: solarPanelRow.description,
+        wattage,
+        quantity,
+        kw
+      });
       
       setPanelWattage(wattage);
       setProjectKW(kw);
+    } else {
+      // Reset if no solar panel found or no description
+      setPanelWattage(0);
+      setProjectKW(0);
     }
   }, [rows]);
 
