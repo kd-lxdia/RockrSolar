@@ -696,6 +696,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
           />
           </div>
 
+          {/* Row 1: Quantity, Date, Invoice */}
           <div className="flex flex-wrap gap-2">
             <Input
               type="number"
@@ -703,7 +704,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
               onChange={(e) => setQin(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Quantity..."
-              className="bg-neutral-900 border-neutral-800 text-neutral-100"
+              className="bg-neutral-900 border-neutral-800 text-neutral-100 flex-1 min-w-[120px]"
             />
             <Input
               type="date"
@@ -711,7 +712,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
               onChange={(e) => setStockInDate(e.target.value)}
               onKeyPress={handleKeyPress}
               max={new Date().toISOString().split('T')[0]}
-              className="bg-neutral-900 border-neutral-800 text-neutral-100"
+              className="bg-neutral-900 border-neutral-800 text-neutral-100 flex-1 min-w-[150px]"
             />
             <Input
               type="text"
@@ -719,15 +720,19 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
               onChange={(e) => setInvoiceNo(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Invoice No."
-              className="bg-neutral-900 border-neutral-800 text-neutral-100"
+              className="bg-neutral-900 border-neutral-800 text-neutral-100 flex-1 min-w-[150px]"
             />
+          </div>
+
+          {/* Row 2: Brand, Price, GST */}
+          <div className="flex flex-wrap gap-2">
             <Input
               type="text"
               value={stockInBrand}
               onChange={(e) => setStockInBrand(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Brand/Make (optional)"
-              className="bg-neutral-900 border-neutral-800 text-neutral-100"
+              className="bg-neutral-900 border-neutral-800 text-neutral-100 flex-1 min-w-[180px]"
             />
             <Input
               type="number"
@@ -736,7 +741,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
               onChange={(e) => setStockInPrice(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Price"
-              className="bg-neutral-900 border-neutral-800 text-neutral-100"
+              className="bg-neutral-900 border-neutral-800 text-neutral-100 flex-1 min-w-[120px]"
             />
             <Input
               type="number"
@@ -744,7 +749,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
               onChange={(e) => setStockInGST(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="GST (%)"
-              className="bg-neutral-900 border-neutral-800 text-neutral-100"
+              className="bg-neutral-900 border-neutral-800 text-neutral-100 flex-1 min-w-[120px]"
             />
           </div>
 
