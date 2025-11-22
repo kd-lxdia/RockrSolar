@@ -652,10 +652,63 @@ export default function BOMManagement() {
           <CardContent className="border-t border-neutral-800 pt-4">
             <CustomBOMCreator
               onSave={async (bomName, rows) => {
-                // Save custom BOM
-                alert(`Custom BOM "${bomName}" created with ${rows.length} items!`);
-                // TODO: Implement API to save custom BOM
-                setShowCustomCreator(false);
+                // Create a custom BOM record
+                const customBOM: BOMRecord = {
+                  id: `bom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  name: bomName,
+                  project_in_kw: 0, // Custom BOM doesn't have these fields
+                  wattage_of_panels: 0,
+                  panel_name: "Custom BOM",
+                  table_option: "Custom",
+                  phase: "SINGLE",
+                  ac_wire: "",
+                  dc_wire: "",
+                  la_wire: "",
+                  earthing_wire: "",
+                  no_of_legs: 0,
+                  front_leg: "",
+                  back_leg: "",
+                  roof_design: "Custom",
+                  created_at: Date.now(),
+                };
+
+                try {
+                  // Save the BOM record first
+                  const response = await fetch("/api/bom", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(customBOM),
+                  });
+
+                  if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                  }
+
+                  const data = await response.json();
+                  if (data.success) {
+                    // Save the custom rows to edits API
+                    await fetch("/api/bom/edits", {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        bomId: customBOM.id,
+                        data: rows,
+                      }),
+                    });
+
+                    // Also save to localStorage as backup
+                    localStorage.setItem(`bom-${customBOM.id}`, JSON.stringify(rows));
+
+                    setRecords([data.data, ...records]);
+                    setShowCustomCreator(false);
+                    alert(`✅ Custom BOM "${bomName}" created successfully with ${rows.length} items!`);
+                  } else {
+                    throw new Error(data.error || "Failed to create BOM");
+                  }
+                } catch (error) {
+                  console.error("Error creating custom BOM:", error);
+                  alert("❌ Failed to create custom BOM. Please try again.");
+                }
               }}
               onCancel={() => setShowCustomCreator(false)}
             />
