@@ -525,6 +525,33 @@ export default function BOMManagement() {
 
   const handleStockOut = async (record: BOMRecord) => {
     try {
+      // Load custom items if it's a custom BOM
+      let customItems = null;
+      if (record.table_option === "Custom") {
+        // Try to load from localStorage first
+        const stored = localStorage.getItem(`bom-${record.id}`);
+        if (stored) {
+          customItems = JSON.parse(stored);
+        } else {
+          // Try to fetch from edits API
+          try {
+            const editsResponse = await fetch(`/api/bom/edits?bomId=${record.id}`);
+            const editsData = await editsResponse.json();
+            if (editsData.success && editsData.data) {
+              customItems = editsData.data;
+            }
+          } catch (error) {
+            console.error("Error loading custom BOM items:", error);
+          }
+        }
+
+        // If we still don't have custom items, show error
+        if (!customItems || customItems.length === 0) {
+          alert("❌ Cannot load custom BOM items. Please try editing and saving the BOM again.");
+          return;
+        }
+      }
+
       // First, check inventory availability
       const checkResponse = await fetch("/api/bom/stock-out", {
         method: "POST",
@@ -532,6 +559,7 @@ export default function BOMManagement() {
         body: JSON.stringify({
           bomId: record.id,
           bomRecord: record,
+          customItems: customItems, // Pass custom items if available
           checkOnly: true, // Only check, don't deduct yet
         }),
       });
@@ -556,18 +584,28 @@ export default function BOMManagement() {
         return; // Stop execution
       }
 
-      // If all items are available, show confirmation
-      const confirmMsg = `This will deduct all materials from this BOM from your inventory:\n\n` +
-        `• AC Wire: ${record.ac_wire || "N/A"}\n` +
-        `• DC Wire: ${record.dc_wire || "N/A"}\n` +
-        `• LA Wire: ${record.la_wire || "N/A"}\n` +
-        `• Earthing Wire: ${record.earthing_wire || "N/A"}\n` +
-        `• Solar Panels: ${Math.ceil(record.project_in_kw * 1000 / record.wattage_of_panels)} units${record.panel_name ? ` (${record.panel_name})` : ""}\n` +
-        `• Inverter: ${record.project_in_kw}KW ${record.phase}\n` +
-        (record.no_of_legs > 0 ? `• Structure Legs: ${record.no_of_legs} units\n` : "") +
-        `\nCustomer: ${record.name}\n\n` +
-        `✅ All items are available in stock.\n\n` +
-        `Are you sure you want to proceed?`;
+      // Build confirmation message based on BOM type
+      let confirmMsg = `This will deduct all materials from this BOM from your inventory:\n\n`;
+      
+      if (record.table_option === "Custom" && customItems) {
+        customItems.forEach((item: any) => {
+          confirmMsg += `• ${item.item}: ${item.qty} ${item.unit || "Nos"}\n`;
+        });
+      } else {
+        confirmMsg += `• AC Wire: ${record.ac_wire || "N/A"}\n`;
+        confirmMsg += `• DC Wire: ${record.dc_wire || "N/A"}\n`;
+        confirmMsg += `• LA Wire: ${record.la_wire || "N/A"}\n`;
+        confirmMsg += `• Earthing Wire: ${record.earthing_wire || "N/A"}\n`;
+        confirmMsg += `• Solar Panels: ${Math.ceil(record.project_in_kw * 1000 / record.wattage_of_panels)} units${record.panel_name ? ` (${record.panel_name})` : ""}\n`;
+        confirmMsg += `• Inverter: ${record.project_in_kw}KW ${record.phase}\n`;
+        if (record.no_of_legs > 0) {
+          confirmMsg += `• Structure Legs: ${record.no_of_legs} units\n`;
+        }
+      }
+      
+      confirmMsg += `\nCustomer: ${record.name}\n\n`;
+      confirmMsg += `✅ All items are available in stock.\n\n`;
+      confirmMsg += `Are you sure you want to proceed?`;
 
       if (!confirm(confirmMsg)) return;
 
@@ -578,6 +616,7 @@ export default function BOMManagement() {
         body: JSON.stringify({
           bomId: record.id,
           bomRecord: record,
+          customItems: customItems, // Pass custom items if available
           checkOnly: false, // Actually deduct stock
         }),
       });

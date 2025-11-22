@@ -13,30 +13,63 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Define materials to deduct from BOM
-    const materials = [
-      { item: "Wires", type: bomRecord.ac_wire, qty: 1, description: "AC Wire" },
-      { item: "Wires", type: bomRecord.dc_wire, qty: 1, description: "DC Wire" },
-      { item: "Wires", type: bomRecord.la_wire, qty: 1, description: "LA Wire" },
-      { item: "Wires", type: bomRecord.earthing_wire, qty: 1, description: "Earthing Wire" },
-      { item: "Solar Panels", type: `${bomRecord.wattage_of_panels}W`, qty: Math.ceil(bomRecord.project_in_kw * 1000 / bomRecord.wattage_of_panels), description: "Solar Panels" },
-      { item: "Inverter", type: `${bomRecord.project_in_kw}KW ${bomRecord.phase}`, qty: 1, description: "Inverter" },
-    ];
+    let materials: Array<{item: string, type: string, qty: number, description: string}> = [];
 
-    // Add legs if specified
-    if (bomRecord.no_of_legs > 0) {
-      materials.push({
-        item: "Structure Legs",
-        type: bomRecord.front_leg || "Front Leg",
-        qty: Math.ceil(bomRecord.no_of_legs / 2),
-        description: "Front Legs"
-      });
-      materials.push({
-        item: "Structure Legs",
-        type: bomRecord.back_leg || "Back Leg",
-        qty: Math.floor(bomRecord.no_of_legs / 2),
-        description: "Back Legs"
-      });
+    // Check if this is a custom BOM
+    if (bomRecord.table_option === "Custom") {
+      // For custom BOMs, load the actual items from the edits
+      try {
+        // Try to get custom items from the request body first
+        if (body.customItems) {
+          materials = body.customItems.map((row: any) => ({
+            item: row.item || "",
+            type: row.make || row.description || "Custom",
+            qty: parseFloat(row.qty) || 0,
+            description: row.item || "Custom Item"
+          }));
+        } else {
+          // If not in body, we need to return error asking for custom items
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: "Custom BOM items not provided. Please pass customItems in request body." 
+            },
+            { status: 400 }
+          );
+        }
+      } catch (error) {
+        console.error("Error loading custom BOM items:", error);
+        return NextResponse.json(
+          { success: false, error: "Failed to load custom BOM items" },
+          { status: 500 }
+        );
+      }
+    } else {
+      // For standard BOMs, use the traditional calculation
+      materials = [
+        { item: "Wires", type: bomRecord.ac_wire, qty: 1, description: "AC Wire" },
+        { item: "Wires", type: bomRecord.dc_wire, qty: 1, description: "DC Wire" },
+        { item: "Wires", type: bomRecord.la_wire, qty: 1, description: "LA Wire" },
+        { item: "Wires", type: bomRecord.earthing_wire, qty: 1, description: "Earthing Wire" },
+        { item: "Solar Panels", type: `${bomRecord.wattage_of_panels}W`, qty: Math.ceil(bomRecord.project_in_kw * 1000 / bomRecord.wattage_of_panels), description: "Solar Panels" },
+        { item: "Inverter", type: `${bomRecord.project_in_kw}KW ${bomRecord.phase}`, qty: 1, description: "Inverter" },
+      ];
+
+      // Add legs if specified
+      if (bomRecord.no_of_legs > 0) {
+        materials.push({
+          item: "Structure Legs",
+          type: bomRecord.front_leg || "Front Leg",
+          qty: Math.ceil(bomRecord.no_of_legs / 2),
+          description: "Front Legs"
+        });
+        materials.push({
+          item: "Structure Legs",
+          type: bomRecord.back_leg || "Back Leg",
+          qty: Math.floor(bomRecord.no_of_legs / 2),
+          description: "Back Legs"
+        });
+      }
     }
 
     // Get current inventory to check availability
