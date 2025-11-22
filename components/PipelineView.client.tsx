@@ -65,6 +65,16 @@ export default function PipelineView() {
   // Process BOMs to determine status
   const pipelineBOMs: PipelineBOM[] = useMemo(() => {
     return boms.map((bom) => {
+      // For Custom BOMs, skip processing - they don't use calculated items
+      if (bom.table_option === "Custom") {
+        console.log('⚠️ Skipping pipeline status for Custom BOM:', bom.id, bom.name);
+        return {
+          ...bom,
+          status: "available" as const, // Custom BOMs always show as available in pipeline
+          missingItems: [],
+        };
+      }
+
       const rows = generateBOMRows(bom);
       const missingItems: { item: string; required: number; available: number; missing: number }[] = [];
       let isAvailable = true;
@@ -252,7 +262,18 @@ export default function PipelineView() {
                       </DialogHeader>
                       
                       <div className="mt-4 pb-4">
-                        {bom.status === "available" ? (
+                        {bom.table_option === "Custom" ? (
+                          <div className="flex flex-col items-center justify-center py-8 text-center">
+                            <CheckCircle className="h-16 w-16 text-blue-500 mb-4" />
+                            <h3 className="text-lg font-medium text-blue-400">Custom BOM</h3>
+                            <p className="text-neutral-400 mt-2">
+                              This is a custom BOM with user-defined items.
+                            </p>
+                            <p className="text-neutral-500 mt-2 text-sm">
+                              Use the "Stock Out" button to check inventory and deduct items.
+                            </p>
+                          </div>
+                        ) : bom.status === "available" ? (
                           <div className="flex flex-col items-center justify-center py-8 text-center">
                             <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
                             <h3 className="text-lg font-medium text-green-400">All Items Available!</h3>
