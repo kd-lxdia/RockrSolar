@@ -87,11 +87,13 @@ export default function PipelineView() {
     }
   }, [boms]);
 
-  // Calculate Stock Levels (using item::type key like the API)
+  // Calculate Stock Levels (using item::type::brand key)
+  // Brand defaults to 'standard' if not specified
   const stockLevels = useMemo(() => {
     const levels: Record<string, number> = {};
     events.forEach((e) => {
-      const key = `${e.item}::${e.type}`;
+      const brand = e.brand?.trim() || 'standard';
+      const key = `${e.item}::${e.type}::${brand}`;
       const qty = Number(e.qty) || 0;
       if (e.kind === "IN") {
         levels[key] = (levels[key] || 0) + qty;
@@ -128,18 +130,19 @@ export default function PipelineView() {
 
         items.forEach((customItem: any) => {
           const itemName = customItem.item || "";
-          const itemType = customItem.make || customItem.description || customItem.type || "";
+          const itemType = customItem.description || customItem.type || ""; // description is the type in custom BOMs
+          const itemBrand = (customItem.make || "").trim() || 'standard'; // make is the brand in custom BOMs, default to 'standard'
           const requiredQty = parseFloat(customItem.qty) || 0;
           
           if (!itemType) return; // Skip items without type
           
-          const key = `${itemName}::${itemType}`;
+          const key = `${itemName}::${itemType}::${itemBrand}`;
           const availableQty = stockLevels[key] || 0;
 
           if (availableQty < requiredQty) {
             isAvailable = false;
             missingItems.push({
-              item: `${itemName} (${itemType})`,
+              item: `${itemName} (${itemType}${itemBrand !== 'standard' ? ` - ${itemBrand}` : ''})`,
               required: requiredQty,
               available: availableQty,
               missing: requiredQty - availableQty,
@@ -174,12 +177,16 @@ export default function PipelineView() {
             requiredQty = match ? parseFloat(match[0]) : 0;
         }
 
-        const availableQty = stockLevels[row.item] || 0;
+        // Get brand from row.make field, default to 'standard'
+        const itemBrand = (row.make || "").trim() || 'standard';
+        const itemType = row.description || '';
+        const key = `${row.item}::${itemType}::${itemBrand}`;
+        const availableQty = stockLevels[key] || 0;
 
         if (availableQty < requiredQty) {
           isAvailable = false;
           missingItems.push({
-            item: row.item,
+            item: `${row.item} (${itemType}${itemBrand !== 'standard' ? ` - ${itemBrand}` : ''})`,
             required: requiredQty,
             available: availableQty,
             missing: requiredQty - availableQty,

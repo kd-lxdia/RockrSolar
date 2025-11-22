@@ -79,11 +79,14 @@ export function StockAlertsView() {
   // Calculate low stock items whenever inventory or BOMs change
   useEffect(() => {
     const calculateAlerts = async () => {
-      const stockMap: Record<string, Record<string, number>> = {};
+      // Build stock map with item::type::brand keys (brand defaults to 'standard')
+      const stockMap: Record<string, Record<string, Record<string, number>>> = {};
       inventory.events.forEach((e) => {
+        const brand = e.brand?.trim() || 'standard';
         if (!stockMap[e.item]) stockMap[e.item] = {};
-        if (!stockMap[e.item][e.type]) stockMap[e.item][e.type] = 0;
-        stockMap[e.item][e.type] += e.kind === "IN" ? e.qty : -e.qty;
+        if (!stockMap[e.item][e.type]) stockMap[e.item][e.type] = {};
+        if (!stockMap[e.item][e.type][brand]) stockMap[e.item][e.type][brand] = 0;
+        stockMap[e.item][e.type][brand] += e.kind === "IN" ? e.qty : -e.qty;
       });
 
       const alerts: StockItem[] = [];
@@ -91,16 +94,18 @@ export function StockAlertsView() {
         const requiredInventory = await calculateRequiredInventory(bomRecords);
         const currentInventoryMap = new Map<string, number>();
         Object.entries(stockMap).forEach(([item, types]) => {
-          Object.entries(types).forEach(([type, qty]) => {
-            const key = item + "::" + type;
-            currentInventoryMap.set(key, qty);
+          Object.entries(types).forEach(([type, brands]) => {
+            Object.entries(brands).forEach(([brand, qty]) => {
+              const key = `${item}::${type}::${brand}`;
+              currentInventoryMap.set(key, qty);
+            });
           });
         });
         const missingStock = findMissingStock(requiredInventory, currentInventoryMap);
         missingStock.forEach(missing => {
           alerts.push({
             item: missing.item,
-            type: missing.type,
+            type: `${missing.type}${missing.brand !== 'standard' ? ` (${missing.brand})` : ''}`,
             qty: missing.currentQty,
             status: missing.status,
             requiredBy: missing.requiredBy,
@@ -110,15 +115,18 @@ export function StockAlertsView() {
       }
 
       Object.entries(stockMap).forEach(([item, types]) => {
-        Object.entries(types).forEach(([type, qty]) => {
-          const alreadyAlerted = alerts.some((a) => a.item === item && a.type === type);
-          if (!alreadyAlerted) {
-            if (qty === 0 || qty < 0) {
-              alerts.push({ item, type, qty, status: "missing" });
-            } else if (qty > 0 && qty <= LOW_STOCK_THRESHOLD) {
-              alerts.push({ item, type, qty, status: qty <= CRITICAL_THRESHOLD ? "critical" : "low" });
+        Object.entries(types).forEach(([type, brands]) => {
+          Object.entries(brands).forEach(([brand, qty]) => {
+            const typeDisplay = brand !== 'standard' ? `${type} (${brand})` : type;
+            const alreadyAlerted = alerts.some((a) => a.item === item && a.type === typeDisplay);
+            if (!alreadyAlerted) {
+              if (qty === 0 || qty < 0) {
+                alerts.push({ item, type: typeDisplay, qty, status: "missing" });
+              } else if (qty > 0 && qty <= LOW_STOCK_THRESHOLD) {
+                alerts.push({ item, type: typeDisplay, qty, status: qty <= CRITICAL_THRESHOLD ? "critical" : "low" });
+              }
             }
-          }
+          });
         });
       });
 

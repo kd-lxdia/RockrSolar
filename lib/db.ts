@@ -47,6 +47,7 @@ export interface InventoryEvent {
   source: string;
   supplier: string;
   kind: "IN" | "OUT";
+  brand?: string; // Optional brand/make field, defaults to "standard" if empty
 }
 
 export interface BOMRecord {
@@ -127,6 +128,7 @@ export async function initDatabase() {
         source VARCHAR(255) NOT NULL,
         supplier VARCHAR(255) NOT NULL,
         kind VARCHAR(3) NOT NULL CHECK (kind IN ('IN', 'OUT')),
+        brand VARCHAR(255) DEFAULT 'standard',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
@@ -179,6 +181,14 @@ export async function initDatabase() {
     } catch (e) {
       // Column might already exist, ignore error
       console.log('panel_name column already exists or error:', e);
+    }
+
+    // Add brand column to events table if it doesn't exist (migration)
+    try {
+      await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS brand VARCHAR(255) DEFAULT 'standard';`;
+    } catch (e) {
+      // Column might already exist, ignore error
+      console.log('brand column already exists or error:', e);
     }
 
     console.log('Database tables initialized successfully');
@@ -374,9 +384,10 @@ export async function getEvents() {
 
 export async function addEvent(event: InventoryEvent) {
   if (!(await isDbAvailable())) return fallbackDb.addEvent(event);
+  const brand = event.brand?.trim() || 'standard'; // Default to 'standard' if empty
   await sql`
-    INSERT INTO events (id, timestamp, item, type, qty, rate, source, supplier, kind)
-    VALUES (${event.id}, ${event.timestamp}, ${event.item}, ${event.type}, ${event.qty}, ${event.rate}, ${event.source}, ${event.supplier}, ${event.kind})
+    INSERT INTO events (id, timestamp, item, type, qty, rate, source, supplier, kind, brand)
+    VALUES (${event.id}, ${event.timestamp}, ${event.item}, ${event.type}, ${event.qty}, ${event.rate}, ${event.source}, ${event.supplier}, ${event.kind}, ${brand})
   `;
 }
 

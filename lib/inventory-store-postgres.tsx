@@ -13,6 +13,7 @@ export interface InventoryEvent {
   source: string;
   supplier: string;
   kind: "IN" | "OUT";
+  brand?: string; // Optional brand/make field, defaults to "standard" if empty
 }
 
 export interface InventoryContextType {

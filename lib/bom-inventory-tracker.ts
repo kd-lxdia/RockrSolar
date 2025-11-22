@@ -8,12 +8,14 @@ import { BOMRecord, generateBOMRows } from './bom-calculations';
 export interface InventoryItem {
   item: string;
   type: string;
+  brand?: string; // Brand/make, defaults to 'standard'
   qty: number;
 }
 
 export interface MissingStockItem {
   item: string;
   type: string;
+  brand: string; // Brand/make, defaults to 'standard'
   currentQty: number;
   requiredQty: number;
   shortfall: number;
@@ -23,13 +25,16 @@ export interface MissingStockItem {
 
 /**
  * Map BOM row items to inventory items
- * This creates standardized item/type pairs for inventory tracking
+ * This creates standardized item/type/brand tuples for inventory tracking
  */
-function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; qty: string | number; description?: string }, customerName: string): Array<{item: string, type: string, qty: number, customer: string}> {
-  const items: Array<{item: string, type: string, qty: number, customer: string}> = [];
+function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; qty: string | number; description?: string; make?: string }, customerName: string): Array<{item: string, type: string, brand: string, qty: number, customer: string}> {
+  const items: Array<{item: string, type: string, brand: string, qty: number, customer: string}> = [];
   
   const qty = typeof bomRow.qty === 'string' ? parseFloat(bomRow.qty) : bomRow.qty;
   if (!qty || isNaN(qty) || qty <= 0) return items;
+  
+  // Get brand from make field, default to 'standard'
+  const brand = (bomRow.make as string || '').trim() || 'standard';
   
   // Map BOM items to inventory categories (use exact item names from BOM)
   const itemName = bomRow.item.toLowerCase();
@@ -38,6 +43,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'Solar Panel',
       type: bomRow.description || 'Standard Panel',
+      brand,
       qty,
       customer: customerName
     });
@@ -45,6 +51,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'Inverter',
       type: bomRow.description || 'Standard Inverter',
+      brand,
       qty,
       customer: customerName
     });
@@ -52,6 +59,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'AC wire',
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -59,6 +67,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'Dc wire Tin copper',
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -66,6 +75,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'Earthing Wire',
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -73,6 +83,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'MCB',
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -80,6 +91,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'ELCB',
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -87,6 +99,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'DCDB',
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -94,6 +107,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'ACDB',
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -101,6 +115,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'Mc4 Connector',
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -108,6 +123,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'Cable Tie UV',
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -115,6 +131,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'Earthing Rod/Plate',
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -122,6 +139,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'Structure Nut Bolt',
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -129,6 +147,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: 'LA',
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -137,6 +156,7 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
     items.push({
       item: bomRow.item,
       type: bomRow.description || bomRow.item,
+      brand,
       qty,
       customer: customerName
     });
@@ -148,8 +168,8 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
 /**
  * Calculate all required inventory for BOMs
  */
-export async function calculateRequiredInventory(bomRecords: BOMRecord[]): Promise<Map<string, {item: string, type: string, totalQty: number, customers: string[]}>> {
-  const required = new Map<string, {item: string, type: string, totalQty: number, customers: string[]}>();
+export async function calculateRequiredInventory(bomRecords: BOMRecord[]): Promise<Map<string, {item: string, type: string, brand: string, totalQty: number, customers: string[]}>> {
+  const required = new Map<string, {item: string, type: string, brand: string, totalQty: number, customers: string[]}>();
   
   for (const bom of bomRecords) {
     let inventoryItems: Array<{item: string, type: string, qty: number, customer: string}> = [];
@@ -190,7 +210,8 @@ export async function calculateRequiredInventory(bomRecords: BOMRecord[]): Promi
       if (customItems && customItems.length > 0) {
         inventoryItems = customItems.map((item: any) => ({
           item: item.item || "",
-          type: item.make || item.description || item.type || "",
+          type: item.description || item.type || "", // description is the type
+          brand: (item.make || "").trim() || 'standard', // make is the brand, default to 'standard'
           qty: parseFloat(item.qty) || 0,
           customer: bom.name,
         })).filter((item: any) => item.type); // Only include items with type
@@ -208,9 +229,9 @@ export async function calculateRequiredInventory(bomRecords: BOMRecord[]): Promi
       });
     }
     
-    // Add to required inventory map
+    // Add to required inventory map - use item::type::brand as key
     inventoryItems.forEach(invItem => {
-      const key = `${invItem.item}::${invItem.type}`;
+      const key = `${invItem.item}::${invItem.type}::${invItem.brand}`;
       
       if (required.has(key)) {
         const existing = required.get(key)!;
@@ -222,6 +243,7 @@ export async function calculateRequiredInventory(bomRecords: BOMRecord[]): Promi
         required.set(key, {
           item: invItem.item,
           type: invItem.type,
+          brand: invItem.brand,
           totalQty: invItem.qty,
           customers: [invItem.customer]
         });
@@ -236,7 +258,7 @@ export async function calculateRequiredInventory(bomRecords: BOMRecord[]): Promi
  * Find missing or insufficient stock
  */
 export function findMissingStock(
-  requiredInventory: Map<string, {item: string, type: string, totalQty: number, customers: string[]}>,
+  requiredInventory: Map<string, {item: string, type: string, brand: string, totalQty: number, customers: string[]}>,
   currentInventory: Map<string, number>
 ): MissingStockItem[] {
   const missing: MissingStockItem[] = [];
@@ -248,6 +270,7 @@ export function findMissingStock(
       missing.push({
         item: req.item,
         type: req.type,
+        brand: req.brand,
         currentQty: 0,
         requiredQty: req.totalQty,
         shortfall: req.totalQty,
@@ -258,6 +281,7 @@ export function findMissingStock(
       missing.push({
         item: req.item,
         type: req.type,
+        brand: req.brand,
         currentQty,
         requiredQty: req.totalQty,
         shortfall: req.totalQty - currentQty,

@@ -247,6 +247,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
   const [stockInSource, setStockInSource] = React.useState<string>("");
   const [stockInPrice, setStockInPrice] = React.useState<string>("");
   const [stockInGST, setStockInGST] = React.useState<string>("");
+  const [stockInBrand, setStockInBrand] = React.useState<string>(""); // Optional brand/make field
   const [hsnMappings, setHsnMappings] = React.useState<Array<{name: string, hsn_code: string}>>([]);
 
   // Load HSN mappings from database
@@ -324,7 +325,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
   const reportTo = ""; // eslint-disable-line @typescript-eslint/no-unused-vars
 
   const handleStockIn = async () => {
-    console.log('Stock In clicked:', { item, type, qin, stockInPrice, stockInSource, invoiceNo });
+    console.log('Stock In clicked:', { item, type, qin, stockInPrice, stockInSource, invoiceNo, stockInBrand });
     
     if (!item || !type || !qin || Number(qin) <= 0) {
       console.log('Validation failed:', { item, type, qin });
@@ -341,13 +342,15 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
         rate: stockInPrice !== "" ? Number(stockInPrice) : 0,
         source: stockInSource || "Unknown",
         supplier: invoiceNo.trim() || "Unknown",
-        kind: "IN"
+        kind: "IN",
+        brand: stockInBrand.trim() || undefined // Pass brand if provided, otherwise undefined (will default to 'standard')
       });
 
       console.log('Stock in event added successfully');
       setQin("");
       setInvoiceNo("");
       setStockInPrice("");
+      setStockInBrand(""); // Clear brand field
       setStockInGST("");
     } catch (error) {
       console.error('Error adding stock in:', error);
@@ -716,6 +719,14 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
               onChange={(e) => setInvoiceNo(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Invoice No."
+              className="bg-neutral-900 border-neutral-800 text-neutral-100"
+            />
+            <Input
+              type="text"
+              value={stockInBrand}
+              onChange={(e) => setStockInBrand(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Brand/Make (optional)"
               className="bg-neutral-900 border-neutral-800 text-neutral-100"
             />
             <Input
