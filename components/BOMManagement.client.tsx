@@ -524,26 +524,61 @@ export default function BOMManagement() {
   };
 
   const handleStockOut = async (record: BOMRecord) => {
-    const confirmMsg = `This will deduct all materials from this BOM from your inventory:\n\n` +
-      `• AC Wire: ${record.ac_wire || "N/A"}\n` +
-      `• DC Wire: ${record.dc_wire || "N/A"}\n` +
-      `• LA Wire: ${record.la_wire || "N/A"}\n` +
-      `• Earthing Wire: ${record.earthing_wire || "N/A"}\n` +
-      `• Solar Panels: ${Math.ceil(record.project_in_kw * 1000 / record.wattage_of_panels)} units${record.panel_name ? ` (${record.panel_name})` : ""}\n` +
-      `• Inverter: ${record.project_in_kw}KW ${record.phase}\n` +
-      (record.no_of_legs > 0 ? `• Structure Legs: ${record.no_of_legs} units\n` : "") +
-      `\nCustomer: ${record.name}\n\n` +
-      `Are you sure you want to proceed?`;
-
-    if (!confirm(confirmMsg)) return;
-
     try {
+      // First, check inventory availability
+      const checkResponse = await fetch("/api/bom/stock-out", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bomId: record.id,
+          bomRecord: record,
+          checkOnly: true, // Only check, don't deduct yet
+        }),
+      });
+
+      const checkData = await checkResponse.json();
+
+      // If items are insufficient, show detailed error
+      if (!checkData.available && checkData.insufficientItems && checkData.insufficientItems.length > 0) {
+        let errorMsg = `❌ INSUFFICIENT INVENTORY\n\n`;
+        errorMsg += `Cannot complete stock out for ${record.name}\n\n`;
+        errorMsg += `The following items are not available in sufficient quantity:\n\n`;
+        
+        checkData.insufficientItems.forEach((item: { description: string; required: number; available: number }) => {
+          errorMsg += `• ${item.description}\n`;
+          errorMsg += `  Required: ${item.required}\n`;
+          errorMsg += `  Available: ${item.available}\n`;
+          errorMsg += `  Short by: ${item.required - item.available}\n\n`;
+        });
+        
+        errorMsg += `Please add stock before proceeding with BOM stock out.`;
+        alert(errorMsg);
+        return; // Stop execution
+      }
+
+      // If all items are available, show confirmation
+      const confirmMsg = `This will deduct all materials from this BOM from your inventory:\n\n` +
+        `• AC Wire: ${record.ac_wire || "N/A"}\n` +
+        `• DC Wire: ${record.dc_wire || "N/A"}\n` +
+        `• LA Wire: ${record.la_wire || "N/A"}\n` +
+        `• Earthing Wire: ${record.earthing_wire || "N/A"}\n` +
+        `• Solar Panels: ${Math.ceil(record.project_in_kw * 1000 / record.wattage_of_panels)} units${record.panel_name ? ` (${record.panel_name})` : ""}\n` +
+        `• Inverter: ${record.project_in_kw}KW ${record.phase}\n` +
+        (record.no_of_legs > 0 ? `• Structure Legs: ${record.no_of_legs} units\n` : "") +
+        `\nCustomer: ${record.name}\n\n` +
+        `✅ All items are available in stock.\n\n` +
+        `Are you sure you want to proceed?`;
+
+      if (!confirm(confirmMsg)) return;
+
+      // Proceed with actual stock out
       const response = await fetch("/api/bom/stock-out", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bomId: record.id,
           bomRecord: record,
+          checkOnly: false, // Actually deduct stock
         }),
       });
 
@@ -562,7 +597,13 @@ export default function BOMManagement() {
         alert(message);
         window.location.reload();
       } else {
-        alert(`❌ Stock Out Failed\n\n${data.error || "Unknown error occurred"}`);
+        // Handle error from actual stock out
+        if (data.insufficientItems) {
+          let errorMsg = `❌ INSUFFICIENT INVENTORY\n\n${data.details || data.error}`;
+          alert(errorMsg);
+        } else {
+          alert(`❌ Stock Out Failed\n\n${data.error || "Unknown error occurred"}`);
+        }
       }
     } catch (error) {
       console.error("Error processing stock out:", error);

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addEvent } from "@/lib/db";
+import { addEvent, getEvents } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { bomId, bomRecord } = body;
+    const { bomId, bomRecord, checkOnly } = body;
 
     if (!bomRecord) {
       return NextResponse.json(
@@ -12,10 +12,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Extract all materials from BOM and create stock out events
-    const stockOutEvents = [];
-    const timestamp = Date.now();
 
     // Define materials to deduct from BOM
     const materials = [
@@ -42,6 +38,69 @@ export async function POST(req: NextRequest) {
         description: "Back Legs"
       });
     }
+
+    // Get current inventory to check availability
+    const allEvents = await getEvents();
+    
+    // Calculate current stock for each item-type combination
+    const stockLevels = new Map<string, number>();
+    allEvents.forEach(event => {
+      const key = `${event.item}::${event.type}`;
+      const currentQty = stockLevels.get(key) || 0;
+      if (event.kind === "IN") {
+        stockLevels.set(key, currentQty + event.qty);
+      } else if (event.kind === "OUT") {
+        stockLevels.set(key, currentQty - event.qty);
+      }
+    });
+
+    // Check if all materials are available in sufficient quantity
+    const insufficientItems: Array<{description: string, required: number, available: number}> = [];
+    
+    for (const material of materials) {
+      if (material.type && material.type.trim() !== "") {
+        const key = `${material.item}::${material.type}`;
+        const available = stockLevels.get(key) || 0;
+        
+        if (available < material.qty) {
+          insufficientItems.push({
+            description: `${material.description} (${material.type})`,
+            required: material.qty,
+            available: available
+          });
+        }
+      }
+    }
+
+    // If checkOnly flag is set, just return availability status
+    if (checkOnly) {
+      return NextResponse.json({
+        success: true,
+        available: insufficientItems.length === 0,
+        insufficientItems
+      });
+    }
+
+    // If items are insufficient, return error
+    if (insufficientItems.length > 0) {
+      const errorMsg = insufficientItems.map(
+        item => `${item.description}: Need ${item.required}, Available ${item.available}`
+      ).join('\n');
+      
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Insufficient inventory",
+          insufficientItems,
+          details: errorMsg
+        },
+        { status: 400 }
+      );
+    }
+
+    // Extract all materials from BOM and create stock out events
+    const stockOutEvents = [];
+    const timestamp = Date.now();
 
     // Create stock out events for each material
     const errors = [];
