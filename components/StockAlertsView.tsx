@@ -42,6 +42,7 @@ export function StockAlertsView() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [lowStockItems, setLowStockItems] = useState<StockItem[]>([]);
 
   const toggleItem = (itemName: string) => {
     setExpandedItems(prev => {
@@ -75,58 +76,65 @@ export function StockAlertsView() {
     fetchBOMs();
   }, []);
 
-  const lowStockItems = useMemo(() => {
-    const stockMap: Record<string, Record<string, number>> = {};
-    inventory.events.forEach((e) => {
-      if (!stockMap[e.item]) stockMap[e.item] = {};
-      if (!stockMap[e.item][e.type]) stockMap[e.item][e.type] = 0;
-      stockMap[e.item][e.type] += e.kind === "IN" ? e.qty : -e.qty;
-    });
+  // Calculate low stock items whenever inventory or BOMs change
+  useEffect(() => {
+    const calculateAlerts = async () => {
+      const stockMap: Record<string, Record<string, number>> = {};
+      inventory.events.forEach((e) => {
+        if (!stockMap[e.item]) stockMap[e.item] = {};
+        if (!stockMap[e.item][e.type]) stockMap[e.item][e.type] = 0;
+        stockMap[e.item][e.type] += e.kind === "IN" ? e.qty : -e.qty;
+      });
 
-    const alerts: StockItem[] = [];
-    if (bomRecords.length > 0) {
-      const requiredInventory = calculateRequiredInventory(bomRecords);
-      const currentInventoryMap = new Map<string, number>();
+      const alerts: StockItem[] = [];
+      if (bomRecords.length > 0) {
+        const requiredInventory = await calculateRequiredInventory(bomRecords);
+        const currentInventoryMap = new Map<string, number>();
+        Object.entries(stockMap).forEach(([item, types]) => {
+          Object.entries(types).forEach(([type, qty]) => {
+            const key = item + "::" + type;
+            currentInventoryMap.set(key, qty);
+          });
+        });
+        const missingStock = findMissingStock(requiredInventory, currentInventoryMap);
+        missingStock.forEach(missing => {
+          alerts.push({
+            item: missing.item,
+            type: missing.type,
+            qty: missing.currentQty,
+            status: missing.status,
+            requiredBy: missing.requiredBy,
+            shortfall: missing.shortfall
+          });
+        });
+      }
+
       Object.entries(stockMap).forEach(([item, types]) => {
         Object.entries(types).forEach(([type, qty]) => {
-          const key = item + "::" + type;
-          currentInventoryMap.set(key, qty);
-        });
-      });
-      const missingStock = findMissingStock(requiredInventory, currentInventoryMap);
-      missingStock.forEach(missing => {
-        alerts.push({
-          item: missing.item,
-          type: missing.type,
-          qty: missing.currentQty,
-          status: missing.status,
-          requiredBy: missing.requiredBy,
-          shortfall: missing.shortfall
-        });
-      });
-    }
-
-    Object.entries(stockMap).forEach(([item, types]) => {
-      Object.entries(types).forEach(([type, qty]) => {
-        const alreadyAlerted = alerts.some((a) => a.item === item && a.type === type);
-        if (!alreadyAlerted) {
-          if (qty === 0 || qty < 0) {
-            alerts.push({ item, type, qty, status: "missing" });
-          } else if (qty > 0 && qty <= LOW_STOCK_THRESHOLD) {
-            alerts.push({ item, type, qty, status: qty <= CRITICAL_THRESHOLD ? "critical" : "low" });
+          const alreadyAlerted = alerts.some((a) => a.item === item && a.type === type);
+          if (!alreadyAlerted) {
+            if (qty === 0 || qty < 0) {
+              alerts.push({ item, type, qty, status: "missing" });
+            } else if (qty > 0 && qty <= LOW_STOCK_THRESHOLD) {
+              alerts.push({ item, type, qty, status: qty <= CRITICAL_THRESHOLD ? "critical" : "low" });
+            }
           }
-        }
+        });
       });
-    });
 
-    return alerts.sort((a, b) => {
-      const statusOrder = { missing: 0, insufficient: 1, critical: 2, low: 3 };
-      if (statusOrder[a.status] !== statusOrder[b.status]) {
-        return statusOrder[a.status] - statusOrder[b.status];
-      }
-      if (a.shortfall && b.shortfall) return b.shortfall - a.shortfall;
-      return a.qty - b.qty;
-    });
+      const sorted = alerts.sort((a, b) => {
+        const statusOrder = { missing: 0, insufficient: 1, critical: 2, low: 3 };
+        if (statusOrder[a.status] !== statusOrder[b.status]) {
+          return statusOrder[a.status] - statusOrder[b.status];
+        }
+        if (a.shortfall && b.shortfall) return b.shortfall - a.shortfall;
+        return a.qty - b.qty;
+      });
+      
+      setLowStockItems(sorted);
+    };
+    
+    calculateAlerts();
   }, [inventory.events, bomRecords]);
 
   // Group items by main item name (kept for potential future use)

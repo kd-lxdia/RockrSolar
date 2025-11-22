@@ -148,36 +148,86 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
 /**
  * Calculate all required inventory for BOMs
  */
-export function calculateRequiredInventory(bomRecords: BOMRecord[]): Map<string, {item: string, type: string, totalQty: number, customers: string[]}> {
+export async function calculateRequiredInventory(bomRecords: BOMRecord[]): Promise<Map<string, {item: string, type: string, totalQty: number, customers: string[]}>> {
   const required = new Map<string, {item: string, type: string, totalQty: number, customers: string[]}>();
   
-  bomRecords.forEach(bom => {
-    const rows = generateBOMRows(bom);
+  for (const bom of bomRecords) {
+    let inventoryItems: Array<{item: string, type: string, qty: number, customer: string}> = [];
     
-    rows.forEach(row => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const inventoryItems = mapBOMRowToInventory(row as any, bom.name);
+    // For Custom BOMs, load custom items
+    if (bom.table_option === "Custom") {
+      console.log('📦 Loading custom items for BOM:', bom.id, bom.name);
       
-      inventoryItems.forEach(invItem => {
-        const key = `${invItem.item}::${invItem.type}`;
-        
-        if (required.has(key)) {
-          const existing = required.get(key)!;
-          existing.totalQty += invItem.qty;
-          if (!existing.customers.includes(invItem.customer)) {
-            existing.customers.push(invItem.customer);
+      // Try localStorage first
+      let customItems = null;
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem(`bom-${bom.id}`);
+        if (stored) {
+          try {
+            customItems = JSON.parse(stored);
+            console.log('✅ Loaded from localStorage:', customItems.length, 'items');
+          } catch (e) {
+            console.error('Failed to parse custom items:', e);
           }
-        } else {
-          required.set(key, {
-            item: invItem.item,
-            type: invItem.type,
-            totalQty: invItem.qty,
-            customers: [invItem.customer]
-          });
         }
+      }
+      
+      // Fallback to API
+      if (!customItems) {
+        try {
+          const response = await fetch(`/api/bom/edits?bomId=${bom.id}`);
+          const data = await response.json();
+          if (data.success && data.data) {
+            customItems = data.data;
+            console.log('✅ Loaded from API:', customItems.length, 'items');
+          }
+        } catch (e) {
+          console.error('Failed to fetch custom items:', e);
+        }
+      }
+      
+      // Map custom items to inventory items
+      if (customItems && customItems.length > 0) {
+        inventoryItems = customItems.map((item: any) => ({
+          item: item.item || "",
+          type: item.make || item.description || item.type || "",
+          qty: parseFloat(item.qty) || 0,
+          customer: bom.name,
+        })).filter((item: any) => item.type); // Only include items with type
+      } else {
+        console.warn('⚠️ Custom BOM has no items:', bom.id, bom.name);
+      }
+    } else {
+      // For Standard BOMs, use calculated rows
+      const rows = generateBOMRows(bom);
+      
+      rows.forEach(row => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const items = mapBOMRowToInventory(row as any, bom.name);
+        inventoryItems.push(...items);
       });
+    }
+    
+    // Add to required inventory map
+    inventoryItems.forEach(invItem => {
+      const key = `${invItem.item}::${invItem.type}`;
+      
+      if (required.has(key)) {
+        const existing = required.get(key)!;
+        existing.totalQty += invItem.qty;
+        if (!existing.customers.includes(invItem.customer)) {
+          existing.customers.push(invItem.customer);
+        }
+      } else {
+        required.set(key, {
+          item: invItem.item,
+          type: invItem.type,
+          totalQty: invItem.qty,
+          customers: [invItem.customer]
+        });
+      }
     });
-  });
+  }
   
   return required;
 }
