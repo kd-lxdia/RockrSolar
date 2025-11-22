@@ -374,28 +374,38 @@ export async function deleteEvent(id: string) {
 
 // Seed initial data
 export async function seedInitialData() {
+  // Skip seeding if database is unavailable - fallback handles its own init
+  if (!(await isDbAvailable())) {
+    return;
+  }
+  
   try {
     // Check if data already exists
     const { rows } = await sql`SELECT COUNT(*) as count FROM items`;
     if (rows[0].count > 0) {
-      console.log('Data already exists, skipping seed');
+      console.log('✅ Data already exists, skipping seed');
       return;
     }
 
-    // Add sample solar-related items
-    const sampleItems = ['Solar Panels', 'Inverters', 'Batteries', 'Wires', 'Mounting Structure'];
+    // Add sample solar-related items (singular to match BOM calculations)
+    const sampleItems = ['Solar Panel', 'Inverter', 'DCDB', 'ACDB', 'MCB', 'ELCB', 'AC wire', 'Dc wire Tin copper', 'Earthing Wire', 'LA', 'Earthing Rod/Plate', 'Mc4 Connector', 'Cable Tie UV', 'Structure Nut Bolt'];
     for (const item of sampleItems) {
       await addItem(item);
     }
 
     // Add sample types
-    await addType('Solar Panels', '550W Mono');
-    await addType('Solar Panels', '450W Poly');
-    await addType('Inverters', '5KW On-Grid');
-    await addType('Inverters', '10KW Hybrid');
-    await addType('Wires', 'AC Wire 4mm²');
-    await addType('Wires', 'DC Wire 6mm²');
-    await addType('Wires', 'Earthing Wire 16mm²');
+    await addType('Solar Panel', '550W Mono');
+    await addType('Solar Panel', '450W Poly');
+    await addType('Solar Panel', '600W Bifacial');
+    await addType('Inverter', '5KW On-Grid');
+    await addType('Inverter', '10KW Hybrid');
+    await addType('Inverter', '15KW Three-Phase');
+    await addType('AC wire', '4mm² Copper');
+    await addType('AC wire', '6mm² Copper');
+    await addType('Dc wire Tin copper', '4mm² Tinned');
+    await addType('Dc wire Tin copper', '6mm² Tinned');
+    await addType('Earthing Wire', '6mm² Green');
+    await addType('Earthing Wire', '16mm² Green');
 
     // Add sample sources
     const sampleSources = ['Main Warehouse', 'Site Storage', 'Supplier Direct'];

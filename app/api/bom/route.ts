@@ -16,10 +16,18 @@ export async function POST(request: NextRequest) {
   try {
     const bom: BOMRecord = await request.json();
     
-    // Validate required fields
-    if (!bom.name || !bom.project_in_kw || !bom.wattage_of_panels || !bom.phase) {
+    // Validate required fields (allow 0 values for custom BOMs)
+    if (!bom.name || bom.project_in_kw === undefined || !bom.phase) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+    
+    // For non-custom BOMs, require wattage_of_panels
+    if (bom.table_option !== 'Custom' && !bom.wattage_of_panels) {
+      return NextResponse.json(
+        { success: false, error: 'Wattage of panels is required for non-custom BOMs' },
         { status: 400 }
       );
     }

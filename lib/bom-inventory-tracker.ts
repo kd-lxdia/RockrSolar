@@ -31,61 +31,103 @@ function mapBOMRowToInventory(bomRow: Record<string, unknown> & { item: string; 
   const qty = typeof bomRow.qty === 'string' ? parseFloat(bomRow.qty) : bomRow.qty;
   if (!qty || isNaN(qty) || qty <= 0) return items;
   
-  // Map BOM items to inventory categories
+  // Map BOM items to inventory categories (use exact item names from BOM)
   const itemName = bomRow.item.toLowerCase();
   
   if (itemName.includes('solar panel')) {
     items.push({
-      item: 'Solar Panels',
+      item: 'Solar Panel',
       type: bomRow.description || 'Standard Panel',
       qty,
       customer: customerName
     });
   } else if (itemName.includes('inverter')) {
     items.push({
-      item: 'Inverters',
+      item: 'Inverter',
       type: bomRow.description || 'Standard Inverter',
       qty,
       customer: customerName
     });
-  } else if (itemName.includes('wire') || itemName.includes('cable')) {
+  } else if (itemName.includes('ac wire')) {
     items.push({
-      item: 'Wires',
+      item: 'AC wire',
       type: bomRow.description || bomRow.item,
       qty,
       customer: customerName
     });
-  } else if (itemName.includes('mcb') || itemName.includes('elcb')) {
+  } else if (itemName.includes('dc wire') || itemName.includes('dc wire tin')) {
     items.push({
-      item: 'Protection Devices',
+      item: 'Dc wire Tin copper',
       type: bomRow.description || bomRow.item,
       qty,
       customer: customerName
     });
-  } else if (itemName.includes('dcdb') || itemName.includes('acdb')) {
+  } else if (itemName.includes('earthing wire')) {
     items.push({
-      item: 'Distribution Boxes',
+      item: 'Earthing Wire',
       type: bomRow.description || bomRow.item,
       qty,
       customer: customerName
     });
-  } else if (itemName.includes('thimble') || itemName.includes('connector')) {
+  } else if (itemName.includes('mcb') && !itemName.includes('acdb')) {
     items.push({
-      item: 'Connectors',
+      item: 'MCB',
       type: bomRow.description || bomRow.item,
       qty,
       customer: customerName
     });
-  } else if (itemName.includes('earthing')) {
+  } else if (itemName.includes('elcb')) {
     items.push({
-      item: 'Earthing Materials',
+      item: 'ELCB',
       type: bomRow.description || bomRow.item,
       qty,
       customer: customerName
     });
-  } else if (itemName.includes('upvc') || itemName.includes('pipe') || itemName.includes('tray')) {
+  } else if (itemName.includes('dcdb')) {
     items.push({
-      item: 'Piping & Trays',
+      item: 'DCDB',
+      type: bomRow.description || bomRow.item,
+      qty,
+      customer: customerName
+    });
+  } else if (itemName.includes('acdb')) {
+    items.push({
+      item: 'ACDB',
+      type: bomRow.description || bomRow.item,
+      qty,
+      customer: customerName
+    });
+  } else if (itemName.includes('mc4 connector')) {
+    items.push({
+      item: 'Mc4 Connector',
+      type: bomRow.description || bomRow.item,
+      qty,
+      customer: customerName
+    });
+  } else if (itemName.includes('cable tie')) {
+    items.push({
+      item: 'Cable Tie UV',
+      type: bomRow.description || bomRow.item,
+      qty,
+      customer: customerName
+    });
+  } else if (itemName.includes('earthing') && (itemName.includes('rod') || itemName.includes('plate'))) {
+    items.push({
+      item: 'Earthing Rod/Plate',
+      type: bomRow.description || bomRow.item,
+      qty,
+      customer: customerName
+    });
+  } else if (itemName.includes('structure nut bolt')) {
+    items.push({
+      item: 'Structure Nut Bolt',
+      type: bomRow.description || bomRow.item,
+      qty,
+      customer: customerName
+    });
+  } else if (itemName === 'la' || itemName.includes('la ')) {
+    items.push({
+      item: 'LA',
       type: bomRow.description || bomRow.item,
       qty,
       customer: customerName

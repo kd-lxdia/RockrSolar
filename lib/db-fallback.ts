@@ -150,11 +150,13 @@ export const fallbackDb = {
   // Initialize with some starter data
   async init() {
     if (items.length === 0) {
-      items = ['Solar Panels', 'Inverters', 'Batteries', 'Wires', 'Mounting Structure'];
+      items = ['Solar Panel', 'Inverter', 'DCDB', 'ACDB', 'MCB', 'ELCB', 'AC wire', 'Dc wire Tin copper', 'Earthing Wire', 'LA', 'Earthing Rod/Plate', 'Mc4 Connector', 'Cable Tie UV', 'Structure Nut Bolt'];
       types = {
-        'Solar Panels': ['550W Mono', '450W Poly'],
-        'Inverters': ['5KW On-Grid', '10KW Hybrid'],
-        'Wires': ['AC Wire 4mm²', 'DC Wire 6mm²', 'Earthing Wire 16mm²']
+        'Solar Panel': ['550W Mono', '450W Poly', '600W Bifacial'],
+        'Inverter': ['5KW On-Grid', '10KW Hybrid', '15KW Three-Phase'],
+        'AC wire': ['4mm² Copper', '6mm² Copper'],
+        'Dc wire Tin copper': ['4mm² Tinned', '6mm² Tinned'],
+        'Earthing Wire': ['6mm² Green', '16mm² Green']
       };
       sources = ['Main Warehouse', 'Site Storage', 'Supplier Direct'];
       suppliers = {

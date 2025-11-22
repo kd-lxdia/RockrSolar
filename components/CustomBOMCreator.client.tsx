@@ -116,11 +116,14 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
       return;
     }
 
-    // Filter out rows with no item or qty
-    const validRows = rows.filter(row => row.item.trim() && row.qty.trim());
+    // Filter out rows with no item, no qty, or qty = 0
+    const validRows = rows.filter(row => {
+      const qty = row.qty.trim();
+      return row.item.trim() && qty && parseFloat(qty) > 0;
+    });
     
     if (validRows.length === 0) {
-      alert("Please add at least one item with quantity");
+      alert("Please add at least one item with quantity greater than 0");
       return;
     }
 
@@ -200,9 +203,9 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
                             {getTypesForItem(row.item).length > 0 && (
                               <div className="py-1">
                                 <div className="px-3 py-1.5 text-xs font-semibold text-neutral-400">Choose</div>
-                                {getTypesForItem(row.item).map((t) => (
+                                {getTypesForItem(row.item).map((t, typeIdx) => (
                                   <div
-                                    key={t}
+                                    key={`${index}-${typeIdx}-${t}`}
                                     className="group flex items-center justify-between px-3 py-2 hover:bg-neutral-800 cursor-pointer"
                                   >
                                     <span
