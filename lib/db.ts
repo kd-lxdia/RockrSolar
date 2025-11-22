@@ -76,10 +76,11 @@ export async function initDatabase() {
   }
   
   try {
-    // Create items table
+    // Create items table with HSN code
     await sql`
       CREATE TABLE IF NOT EXISTS items (
         name VARCHAR(255) PRIMARY KEY,
+        hsn_code VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
@@ -90,7 +91,6 @@ export async function initDatabase() {
         id SERIAL PRIMARY KEY,
         item_name VARCHAR(255) NOT NULL,
         type_name VARCHAR(255) NOT NULL,
-        hsn_code VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(item_name, type_name)
       );
@@ -260,40 +260,53 @@ export async function getHSNForType(itemName: string, typeName: string): Promise
   }
 }
 
-export async function getAllTypeHSNMappings() {
+export async function getAllItemHSNMappings() {
   if (!(await isDbAvailable())) {
-    console.log('⚠️ Fallback mode - returning empty HSN mappings');
-    return [];
+    return fallbackDb.getItemHSNCodes();
   }
   try {
     const { rows } = await sql`
-      SELECT item_name, type_name, hsn_code 
-      FROM types 
-      WHERE hsn_code IS NOT NULL
-      ORDER BY item_name, type_name
+      SELECT name, hsn_code 
+      FROM items 
+      WHERE hsn_code IS NOT NULL AND hsn_code != ''
+      ORDER BY name
     `;
-    console.log('✅ Retrieved HSN mappings:', rows.length, 'entries');
+    console.log('✅ Retrieved HSN mappings:', rows.length, 'items');
     return rows;
   } catch (error) {
-    console.error('Error getting all HSN mappings:', error);
+    console.error('Error getting HSN mappings:', error);
     return [];
   }
 }
 
-export async function updateTypeHSN(itemName: string, typeName: string, hsnCode: string) {
+export async function updateItemHSN(itemName: string, hsnCode: string) {
   if (!(await isDbAvailable())) {
-    console.log('⚠️ Fallback mode - HSN not saved:', { itemName, typeName, hsnCode });
-    return;
+    return fallbackDb.setItemHSNCode(itemName, hsnCode);
   }
   
-  console.log('✅ Saving HSN to database:', { itemName, typeName, hsnCode });
+  console.log('✅ Saving HSN to database:', { itemName, hsnCode });
   await sql`
-    INSERT INTO types (item_name, type_name, hsn_code)
-    VALUES (${itemName}, ${typeName}, ${hsnCode})
-    ON CONFLICT (item_name, type_name) 
-    DO UPDATE SET hsn_code = ${hsnCode}
+    UPDATE items 
+    SET hsn_code = ${hsnCode}
+    WHERE name = ${itemName}
   `;
   console.log('✅ HSN saved successfully');
+}
+
+export async function getItemHSN(itemName: string): Promise<string | null> {
+  if (!(await isDbAvailable())) {
+    return fallbackDb.getItemHSNCode(itemName);
+  }
+  
+  try {
+    const { rows } = await sql`
+      SELECT hsn_code FROM items WHERE name = ${itemName}
+    `;
+    return rows.length > 0 ? (rows[0].hsn_code || null) : null;
+  } catch (error) {
+    console.error('Error getting item HSN:', error);
+    return null;
+  }
 }
 
 // Sources CRUD

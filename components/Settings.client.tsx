@@ -89,49 +89,25 @@ export default function Settings() {
   // Rebuild list when inventory changes
   useEffect(() => {
     if (mappings.length > 0 || inv.items.length > 0) {
-      buildAllItemTypesList(mappings);
+      buildAllItemsList(mappings);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inv.items, inv.events, mappings]);
+  }, [inv.items, mappings]);
 
-  // Auto-select first item
+  // Auto-select first item and load HSN
   useEffect(() => {
     if (!selectedItem && inv.items.length > 0) {
       setSelectedItem(inv.items[0]);
     }
-  }, [inv.items, selectedItem]);
-
-  // Auto-select first type and show HSN when item changes
-  useEffect(() => {
     if (selectedItem) {
-      const availableTypes = inv.getTypesForItem(selectedItem);
-      if (availableTypes.length > 0) {
-        setSelectedType(availableTypes[0]);
-        // Load existing HSN for this type
-        const existing = mappings.find(
-          m => m.item_name === selectedItem && m.type_name === availableTypes[0]
-        );
-        setNewHSN(existing?.hsn_code || "");
-      } else {
-        setSelectedType("");
-        setNewHSN("");
-      }
-    }
-  }, [selectedItem, inv, mappings]);
-
-  // Update HSN when type changes
-  useEffect(() => {
-    if (selectedItem && selectedType) {
-      const existing = mappings.find(
-        m => m.item_name === selectedItem && m.type_name === selectedType
-      );
+      const existing = mappings.find(m => m.name === selectedItem);
       setNewHSN(existing?.hsn_code || "");
     }
-  }, [selectedType, selectedItem, mappings]);
+  }, [inv.items, selectedItem, mappings]);
 
   const handleSave = async () => {
-    if (!selectedItem || !selectedType) {
-      alert("Please select both Item and Type");
+    if (!selectedItem) {
+      alert("Please select an Item");
       return;
     }
 
@@ -142,7 +118,6 @@ export default function Settings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           itemName: selectedItem,
-          typeName: selectedType,
           hsnCode: newHSN.trim()
         })
       });

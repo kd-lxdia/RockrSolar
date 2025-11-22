@@ -34,6 +34,7 @@ export interface InventoryEvent {
 
 // In-memory storage
 let items: string[] = [];
+let itemHSNCodes: Record<string, string> = {};
 let types: Record<string, string[]> = {};
 let sources: string[] = [];
 let suppliers: Record<string, string[]> = {};
@@ -54,6 +55,22 @@ export const fallbackDb = {
   async removeItem(name: string) {
     items = items.filter(i => i !== name);
     delete types[name];
+    delete itemHSNCodes[name];
+  },
+
+  // HSN Codes
+  async getItemHSNCodes() {
+    return Object.entries(itemHSNCodes).map(([name, hsn_code]) => ({ name, hsn_code }));
+  },
+  async getItemHSNCode(itemName: string) {
+    return itemHSNCodes[itemName] || null;
+  },
+  async setItemHSNCode(itemName: string, hsnCode: string) {
+    if (hsnCode && hsnCode.trim()) {
+      itemHSNCodes[itemName] = hsnCode.trim();
+    } else {
+      delete itemHSNCodes[itemName];
+    }
   },
 
   // Types

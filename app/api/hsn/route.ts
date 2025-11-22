@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import * as db from '@/lib/db';
 
-// GET - Get all HSN mappings
+// GET - Get all HSN mappings (item level)
 export async function GET() {
   try {
-    const mappings = await db.getAllTypeHSNMappings();
+    const mappings = await db.getAllItemHSNMappings();
     return NextResponse.json({ success: true, data: mappings });
   } catch (error) {
     console.error('Error fetching HSN mappings:', error);
@@ -15,19 +15,19 @@ export async function GET() {
   }
 }
 
-// POST - Update HSN code for a type
+// POST - Update HSN code for an item
 export async function POST(request: Request) {
   try {
-    const { itemName, typeName, hsnCode } = await request.json();
+    const { itemName, hsnCode } = await request.json();
     
-    if (!itemName || !typeName) {
+    if (!itemName) {
       return NextResponse.json(
-        { success: false, error: 'Item name and type name are required' },
+        { success: false, error: 'Item name is required' },
         { status: 400 }
       );
     }
 
-    await db.updateTypeHSN(itemName, typeName, hsnCode || '');
+    await db.updateItemHSN(itemName, hsnCode || '');
     
     return NextResponse.json({ 
       success: true, 

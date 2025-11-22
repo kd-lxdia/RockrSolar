@@ -247,7 +247,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
   const [stockInSource, setStockInSource] = React.useState<string>("");
   const [stockInPrice, setStockInPrice] = React.useState<string>("");
   const [stockInGST, setStockInGST] = React.useState<string>("");
-  const [hsnMappings, setHsnMappings] = React.useState<Array<{item_name: string, type_name: string, hsn_code: string}>>([]);
+  const [hsnMappings, setHsnMappings] = React.useState<Array<{name: string, hsn_code: string}>>([]);
 
   // Load HSN mappings from database
   React.useEffect(() => {
@@ -576,8 +576,8 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
     const rows = reportResults.map((r) => {
       // Find the original event to get the "kind" field
       const event = inv.events.find(e => e.id === r.id);
-      // Get HSN code for this item+type
-      const hsn = getHSNForType(r.item, r.type);
+      // Get HSN code for this item
+      const hsn = getHSNForItem(r.item);
       
       return {
         "Selected Date": r.date
