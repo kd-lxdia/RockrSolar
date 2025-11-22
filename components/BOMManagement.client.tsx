@@ -740,13 +740,13 @@ export default function BOMManagement() {
         {showCustomCreator && (
           <CardContent className="border-t border-neutral-800 pt-4">
             <CustomBOMCreator
-              onSave={async (bomName, rows) => {
+              onSave={async (bomName, rows, panelWattage, projectKW) => {
                 // Create a custom BOM record
                 const customBOM: BOMRecord = {
                   id: `bom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                   name: bomName,
-                  project_in_kw: 0, // Custom BOM doesn't have these fields
-                  wattage_of_panels: 0,
+                  project_in_kw: projectKW, // Calculated from Solar Panel
+                  wattage_of_panels: panelWattage, // Extracted from panel type
                   panel_name: "Custom BOM",
                   table_option: "Custom",
                   phase: "SINGLE",

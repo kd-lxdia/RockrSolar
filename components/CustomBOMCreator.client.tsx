@@ -60,7 +60,7 @@ const DEFAULT_BOM_ITEMS: Omit<CustomBOMRow, 'sr' | 'qty' | 'description' | 'make
 ];
 
 interface CustomBOMCreatorProps {
-  onSave: (bomName: string, rows: CustomBOMRow[]) => void;
+  onSave: (bomName: string, rows: CustomBOMRow[], panelWattage: number, projectKW: number) => void;
   onCancel: () => void;
 }
 
@@ -77,6 +77,27 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
     }))
   );
   const [newTypeInputs, setNewTypeInputs] = useState<{ [key: number]: string }>({});
+  const [panelWattage, setPanelWattage] = useState<number>(0);
+  const [projectKW, setProjectKW] = useState<number>(0);
+
+  // Extract wattage from panel type (e.g., "550W Mono" -> 550)
+  const extractWattageFromType = (type: string): number => {
+    const match = type.match(/(\d+)\s*W/i);
+    return match ? parseInt(match[1]) : 0;
+  };
+
+  // Calculate project KW whenever Solar Panel row changes
+  React.useEffect(() => {
+    const solarPanelRow = rows.find(row => row.item.toLowerCase().includes('solar panel'));
+    if (solarPanelRow) {
+      const wattage = extractWattageFromType(solarPanelRow.description);
+      const quantity = parseFloat(solarPanelRow.qty) || 0;
+      const kw = (wattage * quantity) / 1000;
+      
+      setPanelWattage(wattage);
+      setProjectKW(kw);
+    }
+  }, [rows]);
 
   // Get types for a specific item
   const getTypesForItem = (itemName: string) => {
@@ -127,7 +148,7 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
       return;
     }
 
-    onSave(bomName, validRows);
+    onSave(bomName, validRows, panelWattage, projectKW);
   };
 
   return (
@@ -159,6 +180,28 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
             className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
           />
         </div>
+
+        {/* Calculated Values Display */}
+        {panelWattage > 0 && (
+          <div className="grid grid-cols-2 gap-4 p-4 bg-blue-900/20 border border-blue-700/30 rounded-md">
+            <div>
+              <label className="block text-xs font-medium text-blue-300 mb-1">
+                Panel Wattage (Calculated)
+              </label>
+              <div className="text-lg font-semibold text-blue-100">
+                {panelWattage} W
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-blue-300 mb-1">
+                Project Capacity (Calculated)
+              </label>
+              <div className="text-lg font-semibold text-blue-100">
+                {projectKW.toFixed(2)} KW
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Items Table */}
         <div className="border border-neutral-800 rounded-md overflow-hidden">

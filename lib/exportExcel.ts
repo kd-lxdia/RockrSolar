@@ -6,41 +6,20 @@ import type { InventoryEvent } from "@/lib/inventory-store-postgres";
  * Export ALL inventory events into Excel
  */
 export async function exportAllEventsToExcel(events: InventoryEvent[]) {
-  // Fetch all HSN mappings via API (client-side)
-  const response = await fetch('/api/hsn');
-  const hsnData = await response.json();
-  const hsnMappings: Array<{item_name: string, type_name: string, hsn_code: string}> = hsnData.success ? hsnData.data : [];
-  
-  console.log('📊 Excel Export - HSN Mappings fetched:', hsnMappings.length, 'entries');
-  console.log('📊 HSN Mappings:', hsnMappings);
-  
-  const hsnMap = new Map<string, string>();
-  hsnMappings.forEach((m) => {
-    hsnMap.set(`${m.item_name}::${m.type_name}`, m.hsn_code || '');
-  });
-
   const rows = events.map((e) => {
-    const hsnKey = `${e.item}::${e.type}`;
-    const hsnCode = hsnMap.get(hsnKey) || "";
-    console.log(`📊 Event: ${e.item}::${e.type} -> HSN: ${hsnCode || '(empty)'}`);
-    
     // Handle timestamp - could be milliseconds or seconds
     const timestamp = e.timestamp > 10000000000 ? e.timestamp : e.timestamp * 1000;
     const date = new Date(timestamp);
     const isValidDate = !isNaN(date.getTime());
     
     return {
-      ID: e.id,
       Item: e.item,
       Type: e.type,
-      "HSN Code": hsnCode,
       Quantity: e.qty,
-      Kind: e.kind,
       Source: e.source,
       Invoice: e.supplier,
       Rate: e.rate,
-      Date: isValidDate ? date.toLocaleDateString() : "Invalid Date",
-      Time: isValidDate ? date.toLocaleTimeString() : "Invalid Time",
+      Date: isValidDate ? date.toLocaleString() : "Invalid Date",
     };
   });
 
@@ -71,33 +50,15 @@ export async function exportCurrentStockToExcel(events: InventoryEvent[]) {
     stockMap[e.item][e.type] += e.kind === "IN" ? e.qty : -e.qty;
   });
 
-  // Fetch all HSN mappings via API (client-side)
-  const response = await fetch('/api/hsn');
-  const hsnData = await response.json();
-  const hsnMappings: Array<{item_name: string, type_name: string, hsn_code: string}> = hsnData.success ? hsnData.data : [];
-  
-  console.log('📊 Current Stock Export - HSN Mappings fetched:', hsnMappings.length, 'entries');
-  console.log('📊 HSN Mappings:', hsnMappings);
-  
-  const hsnMap = new Map<string, string>();
-  hsnMappings.forEach((m) => {
-    hsnMap.set(`${m.item_name}::${m.type_name}`, m.hsn_code || '');
-  });
-
-  const rows: { Item: string; Type: string; "HSN Code": string; Quantity: number }[] = [];
+  const rows: { Item: string; Type: string; "Current Stock": number }[] = [];
 
   Object.entries(stockMap).forEach(([item, types]) => {
     Object.entries(types).forEach(([type, qty]) => {
       if (qty > 0) { // Only show items with positive stock
-        const hsnKey = `${item}::${type}`;
-        const hsnCode = hsnMap.get(hsnKey) || "";
-        console.log(`📊 Stock: ${item}::${type} (qty: ${qty}) -> HSN: ${hsnCode || '(empty)'}`);
-        
         rows.push({ 
           Item: item, 
           Type: type, 
-          "HSN Code": hsnCode,
-          Quantity: qty 
+          "Current Stock": qty 
         });
       }
     });
@@ -116,35 +77,20 @@ export async function exportCurrentStockToExcel(events: InventoryEvent[]) {
  */
 export async function exportStockInToExcel(events: InventoryEvent[]) {
   const inEvents = events.filter(e => e.kind === "IN");
-  
-  // Fetch all HSN mappings via API
-  const response = await fetch('/api/hsn');
-  const hsnData = await response.json();
-  const hsnMappings: Array<{item_name: string, type_name: string, hsn_code: string}> = hsnData.success ? hsnData.data : [];
-  
-  const hsnMap = new Map<string, string>();
-  hsnMappings.forEach((m) => {
-    hsnMap.set(`${m.item_name}::${m.type_name}`, m.hsn_code || '');
-  });
 
   const rows = inEvents.map((e) => {
-    const hsnKey = `${e.item}::${e.type}`;
-    const hsnCode = hsnMap.get(hsnKey) || "";
     const timestamp = e.timestamp > 10000000000 ? e.timestamp : e.timestamp * 1000;
     const date = new Date(timestamp);
     const isValidDate = !isNaN(date.getTime());
     
     return {
-      ID: e.id,
       Item: e.item,
       Type: e.type,
-      "HSN Code": hsnCode,
       Quantity: e.qty,
       Source: e.source,
       Invoice: e.supplier,
       Rate: e.rate,
-      Date: isValidDate ? date.toLocaleDateString() : "Invalid Date",
-      Time: isValidDate ? date.toLocaleTimeString() : "Invalid Time",
+      Date: isValidDate ? date.toLocaleString() : "Invalid Date",
     };
   });
 
@@ -161,35 +107,20 @@ export async function exportStockInToExcel(events: InventoryEvent[]) {
  */
 export async function exportStockOutToExcel(events: InventoryEvent[]) {
   const outEvents = events.filter(e => e.kind === "OUT");
-  
-  // Fetch all HSN mappings via API
-  const response = await fetch('/api/hsn');
-  const hsnData = await response.json();
-  const hsnMappings: Array<{item_name: string, type_name: string, hsn_code: string}> = hsnData.success ? hsnData.data : [];
-  
-  const hsnMap = new Map<string, string>();
-  hsnMappings.forEach((m) => {
-    hsnMap.set(`${m.item_name}::${m.type_name}`, m.hsn_code || '');
-  });
 
   const rows = outEvents.map((e) => {
-    const hsnKey = `${e.item}::${e.type}`;
-    const hsnCode = hsnMap.get(hsnKey) || "";
     const timestamp = e.timestamp > 10000000000 ? e.timestamp : e.timestamp * 1000;
     const date = new Date(timestamp);
     const isValidDate = !isNaN(date.getTime());
     
     return {
-      ID: e.id,
       Item: e.item,
       Type: e.type,
-      "HSN Code": hsnCode,
       Quantity: e.qty,
       Source: e.source,
       Invoice: e.supplier,
       Rate: e.rate,
-      Date: isValidDate ? date.toLocaleDateString() : "Invalid Date",
-      Time: isValidDate ? date.toLocaleTimeString() : "Invalid Time",
+      Date: isValidDate ? date.toLocaleString() : "Invalid Date",
     };
   });
 
@@ -212,36 +143,20 @@ export async function exportByDateRange(events: InventoryEvent[], startDate: Dat
     const timestamp = e.timestamp > 10000000000 ? e.timestamp : e.timestamp * 1000;
     return timestamp >= startTime && timestamp <= endTime;
   });
-  
-  // Fetch all HSN mappings via API
-  const response = await fetch('/api/hsn');
-  const hsnData = await response.json();
-  const hsnMappings: Array<{item_name: string, type_name: string, hsn_code: string}> = hsnData.success ? hsnData.data : [];
-  
-  const hsnMap = new Map<string, string>();
-  hsnMappings.forEach((m) => {
-    hsnMap.set(`${m.item_name}::${m.type_name}`, m.hsn_code || '');
-  });
 
   const rows = filteredEvents.map((e) => {
-    const hsnKey = `${e.item}::${e.type}`;
-    const hsnCode = hsnMap.get(hsnKey) || "";
     const timestamp = e.timestamp > 10000000000 ? e.timestamp : e.timestamp * 1000;
     const date = new Date(timestamp);
     const isValidDate = !isNaN(date.getTime());
     
     return {
-      ID: e.id,
       Item: e.item,
       Type: e.type,
-      "HSN Code": hsnCode,
       Quantity: e.qty,
-      Kind: e.kind,
       Source: e.source,
       Invoice: e.supplier,
       Rate: e.rate,
-      Date: isValidDate ? date.toLocaleDateString() : "Invalid Date",
-      Time: isValidDate ? date.toLocaleTimeString() : "Invalid Time",
+      Date: isValidDate ? date.toLocaleString() : "Invalid Date",
     };
   });
 
