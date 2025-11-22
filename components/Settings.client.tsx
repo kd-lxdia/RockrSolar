@@ -15,24 +15,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
 
-interface TypeHSNMapping {
-  item_name: string;
-  type_name: string;
+interface ItemHSNMapping {
+  name: string;
   hsn_code: string;
 }
 
-interface AllItemType {
+interface AllItem {
   item: string;
-  type: string;
   hsn: string;
 }
 
 export default function Settings() {
   const inv = useInventory();
-  const [mappings, setMappings] = useState<TypeHSNMapping[]>([]);
-  const [allItemTypes, setAllItemTypes] = useState<AllItemType[]>([]);
+  const [mappings, setMappings] = useState<ItemHSNMapping[]>([]);
+  const [allItems, setAllItems] = useState<AllItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<string>("");
-  const [selectedType, setSelectedType] = useState<string>("");
   const [newHSN, setNewHSN] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -42,16 +39,14 @@ export default function Settings() {
   const [newTypeName, setNewTypeName] = useState("");
   const [selectedItemForType, setSelectedItemForType] = useState("");
 
-  const types = selectedItem ? inv.getTypesForItem(selectedItem) : [];
-
-  // Load mappings from database and build all item-types list
+  // Load mappings from database and build all items list
   const loadMappings = async () => {
     try {
       const response = await fetch('/api/hsn');
       const data = await response.json();
       if (data.success) {
         setMappings(data.data);
-        buildAllItemTypesList(data.data);
+        buildAllItemsList(data.data);
       }
     } catch (error) {
       console.error('Error loading HSN mappings:', error);
@@ -60,25 +55,14 @@ export default function Settings() {
     }
   };
 
-  // Build complete list of all items and their types
-  const buildAllItemTypesList = (hsnMappings: TypeHSNMapping[]) => {
-    const allTypes: AllItemType[] = [];
+  // Build complete list of all items with HSN codes
+  const buildAllItemsList = (hsnMappings: ItemHSNMapping[]) => {
+    const itemsList: AllItem[] = inv.items.map(item => ({
+      item,
+      hsn: hsnMappings.find(m => m.name === item)?.hsn_code || ""
+    }));
     
-    inv.items.forEach(item => {
-      const itemTypes = inv.getTypesForItem(item);
-      itemTypes.forEach(type => {
-        const mapping = hsnMappings.find(
-          m => m.item_name === item && m.type_name === type
-        );
-        allTypes.push({
-          item,
-          type,
-          hsn: mapping?.hsn_code || ""
-        });
-      });
-    });
-    
-    setAllItemTypes(allTypes);
+    setAllItems(itemsList);
   };
 
   useEffect(() => {
@@ -137,19 +121,18 @@ export default function Settings() {
     }
   };
 
-  const handleEditRow = (item: string, type: string, hsn: string) => {
-    setEditingRow(`${item}::${type}`);
+  const handleEditRow = (item: string, hsn: string) => {
+    setEditingRow(item);
     setEditHSN(hsn);
   };
 
-  const handleSaveEdit = async (item: string, type: string) => {
+  const handleSaveEdit = async (item: string) => {
     try {
       const response = await fetch('/api/hsn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           itemName: item,
-          typeName: type,
           hsnCode: editHSN.trim()
         })
       });
@@ -159,15 +142,14 @@ export default function Settings() {
         // Update mappings state first
         const updatedMappings = [...mappings];
         const existingIndex = updatedMappings.findIndex(
-          m => m.item_name === item && m.type_name === type
+          m => m.name === item
         );
         
         if (existingIndex >= 0) {
           updatedMappings[existingIndex].hsn_code = editHSN.trim();
         } else {
           updatedMappings.push({
-            item_name: item,
-            type_name: type,
+            name: item,
             hsn_code: editHSN.trim()
           });
         }
@@ -175,11 +157,11 @@ export default function Settings() {
         setMappings(updatedMappings);
         
         // Update local state immediately for instant UI feedback
-        setAllItemTypes(prevTypes => 
-          prevTypes.map(t => 
-            t.item === item && t.type === type 
-              ? { ...t, hsn: editHSN.trim() } 
-              : t
+        setAllItems(prevItems => 
+          prevItems.map(i => 
+            i.item === item 
+              ? { ...i, hsn: editHSN.trim() } 
+              : i
           )
         );
         
@@ -499,31 +481,6 @@ export default function Settings() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-
-              {/* Type Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger 
-                  className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 text-neutral-200 px-3 py-2 rounded-md text-sm flex-1"
-                  disabled={!selectedItem}
-                >
-                  <span className="text-neutral-400">Type:</span>
-                  <span className="font-medium text-neutral-100">
-                    {selectedType || "Select Type"}
-                  </span>
-                  <ChevronDown size={14} className="text-neutral-500 ml-auto" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="min-w-56 bg-[#121317] border-neutral-800 text-neutral-100">
-                  {types.map((type) => (
-                    <DropdownMenuItem
-                      key={type}
-                      onClick={() => setSelectedType(type)}
-                      className="text-neutral-100 cursor-pointer hover:bg-neutral-800"
-                    >
-                      {type}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
 
             <div className="flex gap-2">
@@ -534,11 +491,11 @@ export default function Settings() {
                 onKeyPress={handleKeyPress}
                 placeholder="HSN Code (e.g., 85414011)"
                 className="bg-neutral-900 border-neutral-800 text-neutral-100 flex-1"
-                disabled={!selectedItem || !selectedType}
+                disabled={!selectedItem}
               />
               <Button
                 onClick={handleSave}
-                disabled={!selectedItem || !selectedType || isSaving}
+                disabled={!selectedItem || isSaving}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {isSaving ? (
@@ -551,12 +508,12 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* All Items & Types Table */}
+          {/* All Items Table */}
           <div className="space-y-2">
-            <div className="text-sm font-medium text-neutral-300">All Items & Types with HSN Codes</div>
-            {allItemTypes.length === 0 ? (
+            <div className="text-sm font-medium text-neutral-300">All Items with HSN Codes (All types inherit)</div>
+            {allItems.length === 0 ? (
               <div className="text-center py-8 text-neutral-500">
-                No items or types found. Add items and types first in Stock IN/OUT forms.
+                No items found. Add items first in Stock IN/OUT forms.
               </div>
             ) : (
               <div className="overflow-x-auto border border-neutral-800 rounded-md">
@@ -564,23 +521,20 @@ export default function Settings() {
                   <TableHeader>
                     <TableRow className="border-neutral-800 hover:bg-transparent">
                       <TableHead className="text-neutral-400">Item</TableHead>
-                      <TableHead className="text-neutral-400">Type</TableHead>
                       <TableHead className="text-neutral-400">HSN Code</TableHead>
                       <TableHead className="text-neutral-400 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {allItemTypes.map((itemType, index) => {
-                      const rowKey = `${itemType.item}::${itemType.type}`;
-                      const isEditing = editingRow === rowKey;
+                    {allItems.map((item, index) => {
+                      const isEditing = editingRow === item.item;
 
                       return (
                         <TableRow 
                           key={index} 
                           className="border-neutral-800 hover:bg-neutral-800/50"
                         >
-                          <TableCell className="text-neutral-200">{itemType.item}</TableCell>
-                          <TableCell className="text-neutral-200">{itemType.type}</TableCell>
+                          <TableCell className="text-neutral-200">{item.item}</TableCell>
                           <TableCell className="text-neutral-200 font-mono">
                             {isEditing ? (
                               <Input
@@ -589,7 +543,7 @@ export default function Settings() {
                                 onChange={(e) => setEditHSN(e.target.value)}
                                 onKeyPress={(e) => {
                                   if (e.key === 'Enter') {
-                                    handleSaveEdit(itemType.item, itemType.type);
+                                    handleSaveEdit(item.item);
                                   } else if (e.key === 'Escape') {
                                     handleCancelEdit();
                                   }
@@ -599,8 +553,8 @@ export default function Settings() {
                                 autoFocus
                               />
                             ) : (
-                              <span className={itemType.hsn ? "" : "text-neutral-500 italic"}>
-                                {itemType.hsn || "Not set"}
+                              <span className={item.hsn ? "" : "text-neutral-500 italic"}>
+                                {item.hsn || "Not set"}
                               </span>
                             )}
                           </TableCell>
@@ -608,7 +562,7 @@ export default function Settings() {
                             {isEditing ? (
                               <div className="flex justify-end gap-1">
                                 <Button
-                                  onClick={() => handleSaveEdit(itemType.item, itemType.type)}
+                                  onClick={() => handleSaveEdit(item.item)}
                                   variant="ghost"
                                   size="sm"
                                   className="text-green-400 hover:text-green-300 hover:bg-green-950/50"
@@ -626,7 +580,7 @@ export default function Settings() {
                               </div>
                             ) : (
                               <Button
-                                onClick={() => handleEditRow(itemType.item, itemType.type, itemType.hsn)}
+                                onClick={() => handleEditRow(item.item, item.hsn)}
                                 variant="ghost"
                                 size="sm"
                                 className="text-blue-400 hover:text-blue-300 hover:bg-blue-950/50"

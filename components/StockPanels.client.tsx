@@ -265,11 +265,9 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
     loadHSNMappings();
   }, []);
 
-  // Get HSN for item and type from database
-  const getHSNForType = React.useCallback((itemName: string, typeName: string): string => {
-    const mapping = hsnMappings.find(
-      m => m.item_name === itemName && m.type_name === typeName
-    );
+  // Get HSN for item from database (item-level)
+  const getHSNForItem = React.useCallback((itemName: string): string => {
+    const mapping = hsnMappings.find(m => m.name === itemName);
     return mapping?.hsn_code || "";
   }, [hsnMappings]);
 

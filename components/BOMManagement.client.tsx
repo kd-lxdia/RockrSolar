@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Download, Plus, FileText, FileSpreadsheet, Edit } from "lucide-react";
+import { Trash2, Download, Plus, FileText, FileSpreadsheet, Edit, PackageMinus } from "lucide-react";
 import * as XLSX from "xlsx";
 import CustomBOMCreator from "./CustomBOMCreator.client";
 
@@ -523,7 +523,6 @@ export default function BOMManagement() {
     }
   };
 
-  /* Removed - Stock Out now handled in Pipeline view
   const handleStockOut = async (record: BOMRecord) => {
     const confirmMsg = `This will deduct all materials from this BOM from your inventory:\n\n` +
       `• AC Wire: ${record.ac_wire || "N/A"}\n` +
@@ -570,7 +569,6 @@ export default function BOMManagement() {
       alert("❌ Network error. Please check your connection and try again.");
     }
   };
-  */
 
   if (isLoading) {
     return (
@@ -957,6 +955,15 @@ export default function BOMManagement() {
                             title="Edit BOM (View, Edit, Print, Export)"
                           >
                             <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            onClick={() => handleStockOut(record)}
+                            variant="ghost"
+                            size="sm"
+                            className="text-orange-400 hover:text-orange-300 hover:bg-orange-950/50"
+                            title="Stock Out - Deduct materials from inventory"
+                          >
+                            <PackageMinus className="h-4 w-4" />
                           </Button>
                           <Button
                             onClick={() => exportBOMAsHTML(record)}
