@@ -89,6 +89,7 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
   };
 
   // Calculate project KW whenever Solar Panel row changes
+  // Formula: Panel Wattage / 100 = Project KW (e.g., 600W → 6.0 KW, 550W → 5.5 KW)
   React.useEffect(() => {
     const solarPanelRow = rows.find(row => 
       row.item && row.item.toLowerCase().includes('solar panel')
@@ -96,13 +97,11 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
     
     if (solarPanelRow && solarPanelRow.description) {
       const wattage = extractWattageFromType(solarPanelRow.description);
-      const quantity = parseFloat(solarPanelRow.qty) || 0;
-      const kw = quantity > 0 && wattage > 0 ? (wattage * quantity) / 1000 : 0;
+      const kw = wattage > 0 ? wattage / 100 : 0;
       
       console.log('🔋 Panel Calculation:', {
         description: solarPanelRow.description,
         wattage,
-        quantity,
         kw
       });
       
