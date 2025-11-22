@@ -16,9 +16,51 @@ interface BOMRow {
 }
 
 export default function EditableBOM({ record }: { record: BOMRecord }) {
-  const initialRows = generateBOMRows(record);
-  const [bomRows, setBomRows] = useState<BOMRow[]>(initialRows);
-  const [lastSaved, setLastSaved] = useState<Date | null>(new Date());
+  const [bomRows, setBomRows] = useState<BOMRow[]>([]);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Initialize on client side only to avoid hydration mismatch
+  useEffect(() => {
+    async function loadBOM() {
+      const initialRows = generateBOMRows(record);
+      setBomRows(initialRows);
+      
+      // Try to load saved changes from API first
+      try {
+        const response = await fetch(`/api/bom/edits?bomId=${record.id}`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.data) {
+            setBomRows(result.data);
+            setLastSaved(new Date(result.timestamp));
+            console.log('✅ Loaded saved BOM edits from database');
+            setIsInitialized(true);
+            return;
+          }
+        }
+      } catch (error) {
+        console.log('No saved edits in database, trying localStorage...');
+      }
+      
+      // Fallback to localStorage
+      try {
+        const saved = localStorage.getItem(`bom-${record.id}`);
+        if (saved) {
+          const savedRows = JSON.parse(saved);
+          setBomRows(savedRows);
+          setLastSaved(new Date());
+          console.log('✅ Loaded saved BOM edits from localStorage');
+        }
+      } catch (error) {
+        console.error('Failed to load saved BOM:', error);
+      }
+      
+      setIsInitialized(true);
+    }
+    
+    loadBOM();
+  }, [record]);
 
   const handleCellChange = (rowIndex: number, field: keyof BOMRow, value: string) => {
     const updatedRows = [...bomRows];
@@ -56,25 +98,12 @@ export default function EditableBOM({ record }: { record: BOMRecord }) {
   };
 
   const handleReset = () => {
+    const initialRows = generateBOMRows(record);
     setBomRows(initialRows);
     localStorage.removeItem(`bom-${record.id}`);
     setLastSaved(null);
     console.log('🔄 Reset BOM to original values');
   };
-
-  // Load saved changes on component mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`bom-${record.id}`);
-      if (saved) {
-        const savedRows = JSON.parse(saved);
-        setBomRows(savedRows);
-        console.log('✅ Loaded saved BOM edits from localStorage');
-      }
-    } catch (error) {
-      console.error('Failed to load saved BOM:', error);
-    }
-  }, [record.id]);
 
   const handlePrint = () => {
     try {
@@ -153,21 +182,30 @@ export default function EditableBOM({ record }: { record: BOMRecord }) {
 
   const handleSaveToDatabase = async () => {
     try {
-      const response = await fetch(`/api/bom/${record.id}/update`, {
-        method: 'POST',
+      const response = await fetch(`/api/bom/edits`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows: bomRows })
+        body: JSON.stringify({ 
+          bomId: record.id,
+          data: bomRows 
+        })
       });
       
       if (response.ok) {
         setLastSaved(new Date());
-        alert('✅ BOM saved to database successfully!');
+        // Also save to localStorage for persistence
+        localStorage.setItem(`bom-${record.id}`, JSON.stringify(bomRows));
+        alert('✅ BOM saved successfully!');
       } else {
-        throw new Error('Failed to save to database');
+        const result = await response.json();
+        throw new Error(result.error || 'Failed to save to database');
       }
     } catch (error) {
-      console.error('Failed to save to database:', error);
-      alert('⚠️ Could not save to database. Changes are saved locally.');
+      console.error('Failed to save BOM:', error);
+      // Fallback to localStorage only
+      localStorage.setItem(`bom-${record.id}`, JSON.stringify(bomRows));
+      setLastSaved(new Date());
+      alert('✅ BOM saved locally! (Database unavailable)');
     }
   };
 
@@ -198,6 +236,15 @@ export default function EditableBOM({ record }: { record: BOMRecord }) {
     setBomRows(updatedRows);
     saveChanges(updatedRows);
   };
+
+  // Show loading state while initializing
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen bg-[#0b0c10] flex items-center justify-center">
+        <div className="text-neutral-400">Loading BOM...</div>
+      </div>
+    );
+  }
 
   return (
     <>

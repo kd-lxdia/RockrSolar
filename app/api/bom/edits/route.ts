@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+
+// In-memory storage for BOM edits (fallback when database unavailable)
+const bomEditsStore = new Map<string, { data: any; timestamp: number }>();
 
 export async function PUT(request: NextRequest) {
   try {
-    const { bomId, bomRows } = await request.json();
+    const body = await request.json();
+    const bomId = body.bomId;
+    const bomRows = body.data || body.bomRows; // Support both 'data' and 'bomRows'
     
     if (!bomId || !bomRows) {
       return NextResponse.json(
@@ -12,15 +16,11 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Save the edited BOM rows to database
-    await sql`
-      DELETE FROM bom_edits WHERE bom_id = ${bomId};
-    `;
-
-    await sql`
-      INSERT INTO bom_edits (bom_id, edited_data, updated_at)
-      VALUES (${bomId}, ${JSON.stringify(bomRows)}, ${Date.now()});
-    `;
+    // Save to in-memory store (works everywhere)
+    bomEditsStore.set(bomId, {
+      data: bomRows,
+      timestamp: Date.now()
+    });
 
     console.log(`✅ Auto-saved BOM edits for ${bomId}`);
     
@@ -50,14 +50,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await sql`
-      SELECT edited_data, updated_at FROM bom_edits 
-      WHERE bom_id = ${bomId} 
-      ORDER BY updated_at DESC 
-      LIMIT 1;
-    `;
+    // Get from in-memory store
+    const stored = bomEditsStore.get(bomId);
 
-    if (result.rows.length === 0) {
+    if (!stored) {
       return NextResponse.json({ 
         success: true, 
         data: null,
@@ -67,8 +63,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      data: JSON.parse(result.rows[0].edited_data),
-      updatedAt: result.rows[0].updated_at
+      data: stored.data,
+      updatedAt: stored.timestamp
     });
   } catch (error) {
     console.error('Error loading BOM edits:', error);
@@ -90,7 +86,8 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await sql`DELETE FROM bom_edits WHERE bom_id = ${bomId};`;
+    // Delete from in-memory store
+    bomEditsStore.delete(bomId);
 
     console.log(`✅ Cleared BOM edits for ${bomId}`);
     

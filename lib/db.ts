@@ -1,11 +1,40 @@
 // PostgreSQL database connection and utilities
 import { sql } from './db-client';
-import * as mockDb from './db-mock';
+import { fallbackDb } from './db-fallback';
 
-// Check if we should use mock database (evaluated at runtime)
-function shouldUseMockDb() {
-  // Use mock DB if POSTGRES_URL is not set OR if explicitly enabled
-  return !process.env.POSTGRES_URL || process.env.USE_MOCK_DB === 'true';
+// Track if database is available - check only once on first call
+let dbAvailable: boolean | null = null;
+let dbCheckInProgress = false;
+
+async function isDbAvailable(): Promise<boolean> {
+  // Return cached result if already checked
+  if (dbAvailable !== null) return dbAvailable;
+  
+  // Prevent multiple simultaneous checks
+  if (dbCheckInProgress) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return isDbAvailable();
+  }
+  
+  dbCheckInProgress = true;
+  
+  try {
+    await Promise.race([
+      sql`SELECT 1`,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+    ]);
+    dbAvailable = true;
+    console.log('✅ Connected to PostgreSQL database');
+  } catch (error) {
+    dbAvailable = false;
+    console.warn('⚠️  Database unavailable - using local fallback storage');
+    console.warn('💡 To use real database: ensure network access to AWS RDS or deploy to production');
+    await fallbackDb.init();
+  } finally {
+    dbCheckInProgress = false;
+  }
+  
+  return dbAvailable;
 }
 
 export interface InventoryEvent {
@@ -41,9 +70,9 @@ export interface BOMRecord {
 
 // Initialize database tables
 export async function initDatabase() {
-  if (shouldUseMockDb()) {
-    console.log('⚠️  Using mock database - set POSTGRES_URL in .env.local for real database');
-    return mockDb.initDatabase();
+  if (!(await isDbAvailable())) {
+    console.log('⚠️  Using fallback storage - database unavailable');
+    return { success: true };
   }
   
   try {
@@ -162,18 +191,18 @@ export async function initDatabase() {
 
 // Items CRUD
 export async function getItems() {
-  if (shouldUseMockDb()) return mockDb.getItems();
+  if (!(await isDbAvailable())) return fallbackDb.getItems();
   const { rows } = await sql`SELECT name FROM items ORDER BY name`;
   return rows.map(row => row.name);
 }
 
 export async function addItem(name: string) {
-  if (shouldUseMockDb()) return mockDb.addItem(name);
+  if (!(await isDbAvailable())) return fallbackDb.addItem(name);
   await sql`INSERT INTO items (name) VALUES (${name}) ON CONFLICT (name) DO NOTHING`;
 }
 
 export async function removeItem(name: string) {
-  if (shouldUseMockDb()) return mockDb.removeItem(name);
+  if (!(await isDbAvailable())) return fallbackDb.removeItem(name);
   await sql`DELETE FROM items WHERE name = ${name}`;
   // Also remove associated types
   await sql`DELETE FROM types WHERE item_name = ${name}`;
@@ -181,7 +210,7 @@ export async function removeItem(name: string) {
 
 // Types CRUD
 export async function getTypes() {
-  if (shouldUseMockDb()) return mockDb.getTypes();
+  if (!(await isDbAvailable())) return fallbackDb.getTypes();
   const { rows } = await sql`
     SELECT item_name, array_agg(type_name ORDER BY type_name) as types
     FROM types
@@ -195,7 +224,7 @@ export async function getTypes() {
 }
 
 export async function getTypesForItem(itemName: string) {
-  if (shouldUseMockDb()) return mockDb.getTypesForItem(itemName);
+  if (!(await isDbAvailable())) return fallbackDb.getTypesForItem(itemName);
   const { rows } = await sql`
     SELECT type_name FROM types WHERE item_name = ${itemName} ORDER BY type_name
   `;
@@ -203,7 +232,7 @@ export async function getTypesForItem(itemName: string) {
 }
 
 export async function addType(itemName: string, typeName: string, hsnCode?: string) {
-  if (shouldUseMockDb()) return mockDb.addType(itemName, typeName);
+  if (!(await isDbAvailable())) return fallbackDb.addType(itemName, typeName);
   await sql`
     INSERT INTO types (item_name, type_name, hsn_code) 
     VALUES (${itemName}, ${typeName}, ${hsnCode || null}) 
@@ -212,13 +241,13 @@ export async function addType(itemName: string, typeName: string, hsnCode?: stri
 }
 
 export async function removeType(itemName: string, typeName: string) {
-  if (shouldUseMockDb()) return mockDb.removeType(itemName, typeName);
+  if (!(await isDbAvailable())) return fallbackDb.removeType(itemName, typeName);
   await sql`DELETE FROM types WHERE item_name = ${itemName} AND type_name = ${typeName}`;
 }
 
 // HSN Code functions
 export async function getHSNForType(itemName: string, typeName: string): Promise<string | null> {
-  if (shouldUseMockDb()) return null;
+  if (!(await isDbAvailable())) return null;
   try {
     const { rows } = await sql`
       SELECT hsn_code FROM types 
@@ -232,8 +261,8 @@ export async function getHSNForType(itemName: string, typeName: string): Promise
 }
 
 export async function getAllTypeHSNMappings() {
-  if (shouldUseMockDb()) {
-    console.log('⚠️ Mock DB mode - returning empty HSN mappings');
+  if (!(await isDbAvailable())) {
+    console.log('⚠️ Fallback mode - returning empty HSN mappings');
     return [];
   }
   try {
@@ -252,8 +281,8 @@ export async function getAllTypeHSNMappings() {
 }
 
 export async function updateTypeHSN(itemName: string, typeName: string, hsnCode: string) {
-  if (shouldUseMockDb()) {
-    console.log('⚠️ Mock DB mode - HSN not saved:', { itemName, typeName, hsnCode });
+  if (!(await isDbAvailable())) {
+    console.log('⚠️ Fallback mode - HSN not saved:', { itemName, typeName, hsnCode });
     return;
   }
   
@@ -269,18 +298,18 @@ export async function updateTypeHSN(itemName: string, typeName: string, hsnCode:
 
 // Sources CRUD
 export async function getSources() {
-  if (shouldUseMockDb()) return mockDb.getSources();
+  if (!(await isDbAvailable())) return fallbackDb.getSources();
   const { rows } = await sql`SELECT name FROM sources ORDER BY name`;
   return rows.map(row => row.name);
 }
 
 export async function addSource(name: string) {
-  if (shouldUseMockDb()) return mockDb.addSource(name);
+  if (!(await isDbAvailable())) return fallbackDb.addSource(name);
   await sql`INSERT INTO sources (name) VALUES (${name}) ON CONFLICT (name) DO NOTHING`;
 }
 
 export async function removeSource(name: string) {
-  if (shouldUseMockDb()) return mockDb.removeSource(name);
+  if (!(await isDbAvailable())) return fallbackDb.removeSource(name);
   await sql`DELETE FROM sources WHERE name = ${name}`;
   // Also remove associated suppliers
   await sql`DELETE FROM suppliers WHERE source_name = ${name}`;
@@ -288,7 +317,7 @@ export async function removeSource(name: string) {
 
 // Suppliers CRUD
 export async function getSuppliers() {
-  if (shouldUseMockDb()) return mockDb.getSuppliers();
+  if (!(await isDbAvailable())) return fallbackDb.getSuppliers();
   const { rows } = await sql`
     SELECT source_name, array_agg(supplier_name ORDER BY supplier_name) as suppliers
     FROM suppliers
@@ -302,7 +331,7 @@ export async function getSuppliers() {
 }
 
 export async function getSuppliersForSource(sourceName: string) {
-  if (shouldUseMockDb()) return mockDb.getSuppliersForSource(sourceName);
+  if (!(await isDbAvailable())) return fallbackDb.getSuppliersForSource(sourceName);
   const { rows } = await sql`
     SELECT supplier_name FROM suppliers WHERE source_name = ${sourceName} ORDER BY supplier_name
   `;
@@ -310,7 +339,7 @@ export async function getSuppliersForSource(sourceName: string) {
 }
 
 export async function addSupplier(sourceName: string, supplierName: string) {
-  if (shouldUseMockDb()) return mockDb.addSupplier(sourceName, supplierName);
+  if (!(await isDbAvailable())) return fallbackDb.addSupplier(sourceName, supplierName);
   await sql`
     INSERT INTO suppliers (source_name, supplier_name) 
     VALUES (${sourceName}, ${supplierName}) 
@@ -319,19 +348,19 @@ export async function addSupplier(sourceName: string, supplierName: string) {
 }
 
 export async function removeSupplier(supplierName: string) {
-  if (shouldUseMockDb()) return mockDb.removeSupplier(supplierName);
+  if (!(await isDbAvailable())) return fallbackDb.removeSupplier(supplierName);
   await sql`DELETE FROM suppliers WHERE supplier_name = ${supplierName}`;
 }
 
 // Events CRUD
 export async function getEvents() {
-  if (shouldUseMockDb()) return mockDb.getEvents();
+  if (!(await isDbAvailable())) return fallbackDb.getEvents();
   const { rows } = await sql`SELECT * FROM events ORDER BY timestamp DESC`;
   return rows as InventoryEvent[];
 }
 
 export async function addEvent(event: InventoryEvent) {
-  if (shouldUseMockDb()) return mockDb.addEvent(event);
+  if (!(await isDbAvailable())) return fallbackDb.addEvent(event);
   await sql`
     INSERT INTO events (id, timestamp, item, type, qty, rate, source, supplier, kind)
     VALUES (${event.id}, ${event.timestamp}, ${event.item}, ${event.type}, ${event.qty}, ${event.rate}, ${event.source}, ${event.supplier}, ${event.kind})
@@ -339,16 +368,12 @@ export async function addEvent(event: InventoryEvent) {
 }
 
 export async function deleteEvent(id: string) {
-  if (shouldUseMockDb()) return mockDb.deleteEvent(id);
+  if (!(await isDbAvailable())) return fallbackDb.deleteEvent(id);
   await sql`DELETE FROM events WHERE id = ${id}`;
 }
 
 // Seed initial data
 export async function seedInitialData() {
-  if (shouldUseMockDb()) {
-    return mockDb.seedInitialData();
-  }
-  
   try {
     // Check if data already exists
     const { rows } = await sql`SELECT COUNT(*) as count FROM items`;
@@ -396,17 +421,13 @@ export async function seedInitialData() {
 
 // BOM CRUD
 export async function getBOMRecords() {
-  if (shouldUseMockDb()) {
-    return mockDb.getBOMRecords();
-  }
+  if (!(await isDbAvailable())) return fallbackDb.getBOMRecords();
   const result = await sql`SELECT * FROM bom ORDER BY created_at DESC;`;
   return result.rows as BOMRecord[];
 }
 
 export async function addBOMRecord(bom: BOMRecord) {
-  if (shouldUseMockDb()) {
-    return mockDb.addBOMRecord(bom);
-  }
+  if (!(await isDbAvailable())) return fallbackDb.addBOMRecord(bom);
   await sql`
     INSERT INTO bom (id, name, project_in_kw, wattage_of_panels, panel_name, table_option, phase, 
                      ac_wire, dc_wire, la_wire, earthing_wire, no_of_legs, 
@@ -419,8 +440,30 @@ export async function addBOMRecord(bom: BOMRecord) {
 }
 
 export async function deleteBOMRecord(id: string) {
-  if (shouldUseMockDb()) {
-    return mockDb.deleteBOMRecord(id);
-  }
+  if (!(await isDbAvailable())) return fallbackDb.deleteBOMRecord(id);
   await sql`DELETE FROM bom WHERE id = ${id};`;
+}
+
+export async function updateBOMRecord(id: string, updatedBOM: BOMRecord) {
+  if (!(await isDbAvailable())) return fallbackDb.updateBOMRecord(id, updatedBOM);
+  // Update the BOM record in the database
+  await sql`
+    UPDATE bom 
+    SET 
+      name = ${updatedBOM.name},
+      project_in_kw = ${updatedBOM.project_in_kw},
+      wattage_of_panels = ${updatedBOM.wattage_of_panels},
+      panel_name = ${updatedBOM.panel_name || ''},
+      table_option = ${updatedBOM.table_option},
+      phase = ${updatedBOM.phase},
+      ac_wire = ${updatedBOM.ac_wire},
+      dc_wire = ${updatedBOM.dc_wire},
+      la_wire = ${updatedBOM.la_wire},
+      earthing_wire = ${updatedBOM.earthing_wire},
+      no_of_legs = ${updatedBOM.no_of_legs},
+      front_leg = ${updatedBOM.front_leg},
+      back_leg = ${updatedBOM.back_leg},
+      roof_design = ${updatedBOM.roof_design}
+    WHERE id = ${id};
+  `;
 }
