@@ -20,6 +20,7 @@ export default function PipelineView() {
   const [showStockOutPopup, setShowStockOutPopup] = useState(false);
   const [stockOutMessage, setStockOutMessage] = useState("");
   const [isStockingOut, setIsStockingOut] = useState(false);
+  const [customBOMItems, setCustomBOMItems] = useState<Record<string, any[]>>({});
 
   // Fetch BOMs
   useEffect(() => {
@@ -48,15 +49,54 @@ export default function PipelineView() {
     fetchBOMs();
   }, []);
 
-  // Calculate Stock Levels
+  // Load custom items for Custom BOMs
+  useEffect(() => {
+    const loadCustomItems = async () => {
+      const customBOMs = boms.filter(b => b.table_option === "Custom");
+      const itemsMap: Record<string, any[]> = {};
+      
+      for (const bom of customBOMs) {
+        // Try localStorage first
+        const stored = localStorage.getItem(`bom-${bom.id}`);
+        if (stored) {
+          try {
+            itemsMap[bom.id] = JSON.parse(stored);
+            continue;
+          } catch (e) {
+            console.error('Failed to parse custom items from localStorage:', e);
+          }
+        }
+        
+        // Fallback to API
+        try {
+          const response = await fetch(`/api/bom/edits?bomId=${bom.id}`);
+          const data = await response.json();
+          if (data.success && data.data) {
+            itemsMap[bom.id] = data.data;
+          }
+        } catch (e) {
+          console.error('Failed to fetch custom items from API:', e);
+        }
+      }
+      
+      setCustomBOMItems(itemsMap);
+    };
+    
+    if (boms.length > 0) {
+      loadCustomItems();
+    }
+  }, [boms]);
+
+  // Calculate Stock Levels (using item::type key like the API)
   const stockLevels = useMemo(() => {
     const levels: Record<string, number> = {};
     events.forEach((e) => {
+      const key = `${e.item}::${e.type}`;
       const qty = Number(e.qty) || 0;
       if (e.kind === "IN") {
-        levels[e.item] = (levels[e.item] || 0) + qty;
+        levels[key] = (levels[key] || 0) + qty;
       } else {
-        levels[e.item] = (levels[e.item] || 0) - qty;
+        levels[key] = (levels[key] || 0) - qty;
       }
     });
     return levels;
@@ -65,16 +105,58 @@ export default function PipelineView() {
   // Process BOMs to determine status
   const pipelineBOMs: PipelineBOM[] = useMemo(() => {
     return boms.map((bom) => {
-      // For Custom BOMs, skip processing - they don't use calculated items
+      // For Custom BOMs, check custom items inventory
       if (bom.table_option === "Custom") {
-        console.log('⚠️ Skipping pipeline status for Custom BOM:', bom.id, bom.name);
+        const items = customBOMItems[bom.id];
+        
+        if (!items || items.length === 0) {
+          console.log('⚠️ Custom BOM has no items loaded:', bom.id, bom.name);
+          return {
+            ...bom,
+            status: "unavailable" as const,
+            missingItems: [{
+              item: "Custom items not loaded",
+              required: 0,
+              available: 0,
+              missing: 0,
+            }],
+          };
+        }
+
+        const missingItems: { item: string; required: number; available: number; missing: number }[] = [];
+        let isAvailable = true;
+
+        items.forEach((customItem: any) => {
+          const itemName = customItem.item || "";
+          const itemType = customItem.make || customItem.description || customItem.type || "";
+          const requiredQty = parseFloat(customItem.qty) || 0;
+          
+          if (!itemType) return; // Skip items without type
+          
+          const key = `${itemName}::${itemType}`;
+          const availableQty = stockLevels[key] || 0;
+
+          if (availableQty < requiredQty) {
+            isAvailable = false;
+            missingItems.push({
+              item: `${itemName} (${itemType})`,
+              required: requiredQty,
+              available: availableQty,
+              missing: requiredQty - availableQty,
+            });
+          }
+        });
+
+        console.log('✅ Custom BOM inventory check:', bom.name, 'Available:', isAvailable, 'Missing:', missingItems.length);
+        
         return {
           ...bom,
-          status: "available" as const, // Custom BOMs always show as available in pipeline
-          missingItems: [],
+          status: isAvailable ? "available" : "unavailable",
+          missingItems,
         };
       }
 
+      // For Standard BOMs, use calculated items
       const rows = generateBOMRows(bom);
       const missingItems: { item: string; required: number; available: number; missing: number }[] = [];
       let isAvailable = true;
@@ -111,7 +193,7 @@ export default function PipelineView() {
         missingItems,
       };
     });
-  }, [boms, stockLevels]);
+  }, [boms, stockLevels, customBOMItems]);
 
   const handleStockOut = async (bom: PipelineBOM) => {
     // Check if stock is available
@@ -262,16 +344,43 @@ export default function PipelineView() {
                       </DialogHeader>
                       
                       <div className="mt-4 pb-4">
-                        {bom.table_option === "Custom" ? (
+                        {bom.table_option === "Custom" && bom.status === "available" ? (
                           <div className="flex flex-col items-center justify-center py-8 text-center">
-                            <CheckCircle className="h-16 w-16 text-blue-500 mb-4" />
-                            <h3 className="text-lg font-medium text-blue-400">Custom BOM</h3>
+                            <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
+                            <h3 className="text-lg font-medium text-green-400">Custom BOM - All Items Available!</h3>
                             <p className="text-neutral-400 mt-2">
-                              This is a custom BOM with user-defined items.
+                              This custom BOM has all required items in stock.
                             </p>
-                            <p className="text-neutral-500 mt-2 text-sm">
-                              Use the "Stock Out" button to check inventory and deduct items.
-                            </p>
+                          </div>
+                        ) : bom.table_option === "Custom" && bom.status === "unavailable" ? (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-2 text-red-400 bg-red-950/30 p-3 rounded-md border border-red-900/50">
+                              <AlertTriangle className="h-5 w-5" />
+                              <span className="font-medium">Custom BOM - The following items are insufficient in stock:</span>
+                            </div>
+                            
+                            <div className="border border-neutral-800 rounded-md overflow-hidden">
+                              <table className="w-full text-sm text-left">
+                                <thead className="bg-neutral-900 text-neutral-400 sticky top-0">
+                                  <tr>
+                                    <th className="px-4 py-2">Item Name</th>
+                                    <th className="px-4 py-2 text-right">Required</th>
+                                    <th className="px-4 py-2 text-right">Available</th>
+                                    <th className="px-4 py-2 text-right">Missing</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-neutral-800">
+                                  {bom.missingItems.map((item, idx) => (
+                                    <tr key={idx} className="hover:bg-neutral-800/50">
+                                      <td className="px-4 py-2 font-medium text-neutral-300">{item.item}</td>
+                                      <td className="px-4 py-2 text-right text-neutral-400">{item.required}</td>
+                                      <td className="px-4 py-2 text-right text-neutral-400">{item.available}</td>
+                                      <td className="px-4 py-2 text-right text-red-400 font-bold">-{item.missing}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         ) : bom.status === "available" ? (
                           <div className="flex flex-col items-center justify-center py-8 text-center">
