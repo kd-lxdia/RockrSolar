@@ -16,23 +16,28 @@ export async function POST(req: NextRequest) {
     let materials: Array<{item: string, type: string, qty: number, description: string}> = [];
 
     // Check if this is a custom BOM
+    console.log('BOM table_option:', bomRecord.table_option);
+    console.log('customItems in body:', body.customItems ? body.customItems.length : 'not provided');
+    
     if (bomRecord.table_option === "Custom") {
       // For custom BOMs, load the actual items from the edits
       try {
         // Try to get custom items from the request body first
-        if (body.customItems) {
+        if (body.customItems && body.customItems.length > 0) {
           materials = body.customItems.map((row: any) => ({
             item: row.item || "",
             type: row.make || row.description || "Custom",
             qty: parseFloat(row.qty) || 0,
             description: row.item || "Custom Item"
           }));
+          console.log('✅ Loaded', materials.length, 'custom items');
         } else {
-          // If not in body, we need to return error asking for custom items
+          // If not in body, return error
+          console.error('❌ Custom BOM but no customItems provided');
           return NextResponse.json(
             { 
               success: false, 
-              error: "Custom BOM items not provided. Please pass customItems in request body." 
+              error: "Custom BOM items not provided. Please reload the page and try again." 
             },
             { status: 400 }
           );

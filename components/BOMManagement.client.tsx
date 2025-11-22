@@ -525,13 +525,18 @@ export default function BOMManagement() {
 
   const handleStockOut = async (record: BOMRecord) => {
     try {
+      console.log('🔍 Stock out for BOM:', record.id, 'table_option:', record.table_option);
+      
       // Load custom items if it's a custom BOM
       let customItems = null;
       if (record.table_option === "Custom") {
+        console.log('📦 This is a Custom BOM, loading items...');
+        
         // Try to load from localStorage first
         const stored = localStorage.getItem(`bom-${record.id}`);
         if (stored) {
           customItems = JSON.parse(stored);
+          console.log('✅ Loaded from localStorage:', customItems.length, 'items');
         } else {
           // Try to fetch from edits API
           try {
@@ -539,6 +544,7 @@ export default function BOMManagement() {
             const editsData = await editsResponse.json();
             if (editsData.success && editsData.data) {
               customItems = editsData.data;
+              console.log('✅ Loaded from edits API:', customItems.length, 'items');
             }
           } catch (error) {
             console.error("Error loading custom BOM items:", error);
@@ -547,9 +553,14 @@ export default function BOMManagement() {
 
         // If we still don't have custom items, show error
         if (!customItems || customItems.length === 0) {
+          console.error('❌ No custom items found!');
           alert("❌ Cannot load custom BOM items. Please try editing and saving the BOM again.");
           return;
         }
+        
+        console.log('📋 Custom items:', customItems);
+      } else {
+        console.log('📊 This is a Standard BOM');
       }
 
       // First, check inventory availability
