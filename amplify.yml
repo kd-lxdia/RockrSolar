@@ -9,7 +9,6 @@ frontend:
         - npm ci --cache .npm --prefer-offline
     build:
       commands:
-        - export USE_MOCK_DB=true
         - npm run build
   artifacts:
     baseDirectory: .next
