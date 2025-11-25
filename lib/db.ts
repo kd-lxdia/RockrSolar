@@ -423,48 +423,68 @@ export async function deleteEvent(id: string) {
 
 // Seed initial data
 export async function seedInitialData() {
-  // CRITICAL: Never seed in production to prevent data loss
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL || process.env.AWS_REGION) {
-    console.log('🛡️ Production environment detected - seeding disabled to protect existing data');
-    return;
-  }
-  
   // Skip seeding if database is unavailable - fallback handles its own init
   if (!(await isDbAvailable())) {
     return;
   }
   
   try {
-    // Check if data already exists in multiple tables to prevent accidental overwrites
-    const { rows: itemRows } = await sql`SELECT COUNT(*) as count FROM items`;
-    const { rows: eventRows } = await sql`SELECT COUNT(*) as count FROM events`;
-    const { rows: bomRows } = await sql`SELECT COUNT(*) as count FROM bom`;
+    // Check if any standard types already exist (indicator that seeding was done)
+    const { rows: typeRows } = await sql`SELECT COUNT(*) as count FROM types WHERE item_name = 'DCDB'`;
     
-    // If ANY data exists (items, events, or BOMs), skip seeding
-    if (itemRows[0].count > 0 || eventRows[0].count > 0 || bomRows[0].count > 0) {
-      console.log('✅ Database has existing data, skipping seed (Items:', itemRows[0].count, 'Events:', eventRows[0].count, 'BOMs:', bomRows[0].count, ')');
+    if (typeRows[0].count > 0) {
+      console.log('✅ Standard types already exist, skipping seed');
       return;
     }
 
-    // Add sample solar-related items (singular to match BOM calculations)
-    const sampleItems = ['Solar Panel', 'Inverter', 'DCDB', 'ACDB', 'MCB', 'ELCB', 'AC wire', 'Dc wire Tin copper', 'Earthing Wire', 'LA', 'Earthing Rod/Plate', 'Mc4 Connector', 'Cable Tie UV', 'Structure Nut Bolt'];
-    for (const item of sampleItems) {
-      await addItem(item);
-    }
+    console.log('🌱 Seeding standard items and types for first-time setup...');
 
-    // Add sample types
-    await addType('Solar Panel', '550W Mono');
-    await addType('Solar Panel', '450W Poly');
-    await addType('Solar Panel', '600W Bifacial');
-    await addType('Inverter', '5KW On-Grid');
-    await addType('Inverter', '10KW Hybrid');
-    await addType('Inverter', '15KW Three-Phase');
-    await addType('AC wire', '4mm² Copper');
-    await addType('AC wire', '6mm² Copper');
-    await addType('Dc wire Tin copper', '4mm² Tinned');
-    await addType('Dc wire Tin copper', '6mm² Tinned');
-    await addType('Earthing Wire', '6mm² Green');
-    await addType('Earthing Wire', '16mm² Green');
+    // Add standard items (singular to match BOM calculations)
+    const standardItems = {
+      "DCDB": ["1 IN 1 OUT", "2 IN 2 OUT", "3 IN 3 OUT", "4 IN 4 OUT", "AS PER DESIGN"],
+      "ACDB": ["32A", "63A"],
+      "MCB": ["32A 2 POLE", "63A 2 POLE", "100A 2 POLE", "32A 4 POLE", "63A 4 POLE", "100A 4 POLE"],
+      "ELCB": ["32A 2 POLE", "63A 2 POLE", "100A 2 POLE", "32A 4 POLE", "63A 4 POLE", "100A 4 POLE"],
+      "Danger Plate": ["230V"],
+      "Fire Cylinder Co2": ["1 KG"],
+      "Copper Thimble for (ACDB)": ["Pin types 6mmsq"],
+      "Copper Thimble for ( Earthing , Inverter, Structure)": ["Ring types 6mmsq"],
+      "Copper Thimble for ( LA)": ["Ring types 16mmsq"],
+      "AC wire": ["6 sq mm Armoured", "10 sq mm Armoured", "16 sq mm Armoured", "6 sq mm", "10 sq mm"],
+      "AC wire Inverter to ACDB": ["2 CORE 6 SQ MM", "2 CORE 10 SQ MM", "4 CORE 4 SQ MM", "4 CORE 6 SQ MM"],
+      "Dc wire Tin copper": ["4 sq mm", "6 sq mm"],
+      "Earthing Wire": ["6 sq mm"],
+      "LA Earthing Wire": ["16 sq mm"],
+      "Earthing Pit Cover": ["STANDARD"],
+      "LA": ["1 MTR"],
+      "LA Fastner / LA": ["M6"],
+      "Earthing Rod/Plate": ["1 MTR | COPPER COATING", "2 MTR | COPPER COATING"],
+      "Earthing Chemical": ["CHEMICAL"],
+      "Mc4 Connector": ["1000V"],
+      "Cable Tie UV": ["200MM", "300MM"],
+      "Screw": ["1.5 INCH"],
+      "Gitti": ["1.5 INCH"],
+      "Wire PVC Tape": ["RED, BLUE, GREEN", "RED, BLUE, BLACK, YELLOW"],
+      "UPVC Pipe": ["20mm"],
+      "UPVC Cable Tray": ["50*25"],
+      "UPVC Shedal": ["20mm"],
+      "GI Shedal": ["20mm"],
+      "UPVC Tee Band": ["20mm"],
+      "UPVC Elbow": ["20mm"],
+      "Flexible Pipe": ["20mm"],
+      "Structure Nut Bolt": ["M10*25"],
+      "Thread Rod / Fastner": ["M10"],
+      "Solar Panel": ["550W Mono", "600W Bifacial", "450W Poly"],
+      "Inverter": ["5KW On-Grid", "10KW Hybrid", "15KW Three-Phase"]
+    };
+
+    // Add items and their types
+    for (const [item, types] of Object.entries(standardItems)) {
+      await addItem(item);
+      for (const type of types) {
+        await addType(item, type);
+      }
+    }
 
     // Add sample sources
     const sampleSources = ['Main Warehouse', 'Site Storage', 'Supplier Direct'];
@@ -477,12 +497,7 @@ export async function seedInitialData() {
     await addSupplier('Main Warehouse', 'Green Energy Corp');
     await addSupplier('Supplier Direct', 'Direct Solar Imports');
 
-    // No sample events - let users add their own data
-    // This prevents confusion with dummy data
-
-    console.log('Sample data seeded successfully - ready for real inventory');
-
-    console.log('Sample data seeded successfully');
+    console.log('✅ Standard items and types seeded successfully - ready for use!');
   } catch (error) {
     console.error('Error seeding data:', error);
   }

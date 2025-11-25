@@ -3,16 +3,13 @@ import { initDatabase, seedInitialData } from '@/lib/db';
 
 export async function GET() {
   try {
-    // Only allow initialization, not seeding, to protect existing data
+    // Initialize database tables (safe - uses CREATE IF NOT EXISTS)
     await initDatabase();
     
-    // NEVER seed in production - only create tables
-    if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL && !process.env.AWS_REGION) {
-      await seedInitialData();
-      return NextResponse.json({ success: true, message: 'Database initialized and seeded successfully (development only)' });
-    }
+    // Seed standard items and types (safe - only runs once, checks if DCDB types exist)
+    await seedInitialData();
     
-    return NextResponse.json({ success: true, message: 'Database tables initialized successfully (seeding skipped in production)' });
+    return NextResponse.json({ success: true, message: 'Database initialized successfully' });
   } catch (error) {
     console.error('Database initialization error:', error);
     return NextResponse.json(

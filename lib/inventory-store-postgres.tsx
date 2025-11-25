@@ -92,12 +92,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Fetch data on mount (database tables are auto-created on first query)
+  // Initialize database and fetch data on mount
   useEffect(() => {
     const initializeData = async () => {
       try {
-        // Only fetch data - database initialization happens automatically on server
-        // Don't call /api/db/init to prevent resetting/seeding data
+        // Initialize database tables and seed standard types (safe - only runs once)
+        await fetch('/api/db/init');
+        // Then fetch all data
         await refreshData();
       } catch (error) {
         console.error('Error initializing data:', error);
