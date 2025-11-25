@@ -22,6 +22,7 @@ export interface InventoryContextType {
   types: string[];
   sources: string[];
   suppliers: string[];
+  brands: string[]; // List of all available brands/makes
   notifications: Array<{ id: string; text: string; kind: "in" | "out"; timestamp: number }>;
   
   addEvent: (event: Omit<InventoryEvent, "id" | "timestamp">) => Promise<void>;
@@ -33,6 +34,8 @@ export interface InventoryContextType {
   removeSource: (name: string) => Promise<void>;
   addSupplier: (source: string, supplier: string) => Promise<void>;
   removeSupplier: (name: string) => Promise<void>;
+  addBrand: (name: string) => Promise<void>;
+  removeBrand: (name: string) => Promise<void>;
   getTypesForItem: (item: string) => string[];
   getSuppliersForSource: (source: string) => string[];
   pushNotification: (text: string, kind: "in" | "out") => void;
@@ -50,6 +53,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const [typesMap, setTypesMap] = useState<Record<string, string[]>>({});
   const [sources, setSources] = useState<string[]>([]);
   const [suppliersMap, setSuppliersMap] = useState<Record<string, string[]>>({});
+  const [brands, setBrands] = useState<string[]>([]);
   const [notifications, setNotifications] = useState<Array<{ id: string; text: string; kind: "in" | "out"; timestamp: number }>>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -59,12 +63,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       
       // Fetch all data in parallel
-      const [itemsRes, typesRes, sourcesRes, suppliersRes, eventsRes] = await Promise.all([
+      const [itemsRes, typesRes, sourcesRes, suppliersRes, eventsRes, brandsRes] = await Promise.all([
         fetch('/api/items'),
         fetch('/api/types'),
         fetch('/api/sources'),
         fetch('/api/suppliers'),
-        fetch('/api/events')
+        fetch('/api/events'),
+        fetch('/api/brands')
       ]);
 
       const itemsData = await itemsRes.json();
@@ -72,12 +77,14 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       const sourcesData = await sourcesRes.json();
       const suppliersData = await suppliersRes.json();
       const eventsData = await eventsRes.json();
+      const brandsData = await brandsRes.json();
 
       if (itemsData.success) setItems(itemsData.data);
       if (typesData.success) setTypesMap(typesData.data);
       if (sourcesData.success) setSources(sourcesData.data);
       if (suppliersData.success) setSuppliersMap(suppliersData.data);
       if (eventsData.success) setEvents(eventsData.data);
+      if (brandsData.success) setBrands(brandsData.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -254,6 +261,35 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     return suppliersMap[source] || [];
   };
 
+  // Brands
+  const addBrand = async (name: string) => {
+    try {
+      const res = await fetch('/api/brands', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      if (res.ok) {
+        setBrands(prev => [...prev, name].sort());
+      }
+    } catch (error) {
+      console.error('Error adding brand:', error);
+    }
+  };
+
+  const removeBrand = async (name: string) => {
+    try {
+      const res = await fetch(`/api/brands?name=${encodeURIComponent(name)}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setBrands(prev => prev.filter(b => b !== name));
+      }
+    } catch (error) {
+      console.error('Error removing brand:', error);
+    }
+  };
+
   // Events
   const addEvent = async (event: Omit<InventoryEvent, "id" | "timestamp">) => {
     try {
@@ -307,6 +343,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     types: allTypes,
     sources,
     suppliers: allSuppliers,
+    brands,
     notifications,
     addEvent,
     addItem,
@@ -317,6 +354,8 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     removeSource,
     addSupplier,
     removeSupplier,
+    addBrand,
+    removeBrand,
     getTypesForItem,
     getSuppliersForSource,
     pushNotification,

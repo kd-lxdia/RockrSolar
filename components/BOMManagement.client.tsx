@@ -3,13 +3,162 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, Download, Plus, FileText, FileSpreadsheet, Edit, PackageMinus } from "lucide-react";
+import { Trash2, Download, Plus, FileText, FileSpreadsheet, Edit, PackageMinus, ChevronDown, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import CustomBOMCreator from "./CustomBOMCreator.client";
+import { useInventory } from "@/lib/inventory-store-postgres";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+
+interface SolarPanelDropdownProps {
+  selected: string;
+  options: string[];
+  onSelect: (value: string) => void;
+  onAdd: (name: string) => void;
+  onRemove: (name: string) => void;
+}
+
+function SolarPanelDropdown({
+  selected,
+  options,
+  onSelect,
+  onAdd,
+  onRemove,
+}: SolarPanelDropdownProps) {
+  const [newName, setNewName] = React.useState("");
+  const [search, setSearch] = React.useState("");
+  const [deleteConfirm, setDeleteConfirm] = React.useState<string | null>(null);
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const filteredOptions = React.useMemo(
+    () => options.filter((o) => o.toLowerCase().includes(search.toLowerCase())),
+    [options, search]
+  );
+
+  const handleDeleteClick = React.useCallback((itemToDelete: string) => {
+    setDeleteConfirm(itemToDelete);
+    setIsOpen(false);
+  }, []);
+
+  return (
+    <>
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuTrigger className="w-full inline-flex items-center justify-between gap-2 bg-neutral-900 border border-neutral-800 text-neutral-200 px-3 py-2 rounded-md text-sm">
+          <span className="font-medium text-neutral-100">
+            {selected || "Select Solar Panel"}
+          </span>
+          <ChevronDown size={14} className="text-neutral-500" />
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent className="min-w-56 bg-[#121317] border-neutral-800 text-neutral-100">
+          <div className="px-2 pt-2 pb-1">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="bg-neutral-900 border-neutral-800 text-neutral-100 placeholder:text-neutral-500 placeholder:opacity-60"
+            />
+          </div>
+
+          <DropdownMenuLabel className="text-neutral-400">Choose Panel</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+
+          {filteredOptions.map((o) => (
+            <div key={o} className="flex items-center justify-between px-2 py-1 hover:bg-neutral-800 rounded-sm">
+              <button
+                onClick={() => {
+                  onSelect(o);
+                  setIsOpen(false);
+                }}
+                className="flex-1 text-left text-neutral-100"
+              >
+                {o}
+              </button>
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDeleteClick(o);
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="p-1 ml-2 rounded hover:bg-red-900 hover:text-red-300 text-neutral-500 flex-shrink-0"
+                aria-label={`Delete ${o}`}
+                title={`Delete ${o}`}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+
+          <DropdownMenuSeparator />
+
+          <div className="px-2 py-2">
+            <div className="flex items-center gap-2">
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Add solar panel"
+                className="bg-neutral-900 border-neutral-800 text-neutral-100 placeholder:text-neutral-500"
+              />
+              <Button
+                size="sm"
+                onClick={() => {
+                  const trimmed = newName.trim();
+                  if (trimmed) {
+                    onAdd(trimmed);
+                    setNewName("");
+                  }
+                }}
+                className="bg-blue-600 hover:bg-blue-500"
+              >
+                <Plus size={14} />
+              </Button>
+            </div>
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-6 max-w-sm mx-4">
+            <h3 className="text-lg font-semibold text-white mb-3">
+              Confirm Deletion
+            </h3>
+            <p className="text-neutral-300 mb-6">
+              Are you sure you want to delete &quot;{deleteConfirm}&quot;? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 text-neutral-400 hover:text-neutral-200 border border-neutral-600 rounded hover:border-neutral-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onRemove(deleteConfirm);
+                  setDeleteConfirm(null);
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 export interface BOMRecord {
   id: string;
   name: string;
+  customerName?: string;
   project_in_kw: number;
   wattage_of_panels: number;
   panel_name?: string;
@@ -119,8 +268,9 @@ function computeBOMItems(record: BOMRecord) {
   const perLeg = (qty: number) => noOfLegs > 0 ? Math.round(qty * noOfLegs * 100) / 100 : qty;
 
   // Build BOM table rows
+  const panelDesc = record.panel_name ? `${record.wattage_of_panels}W - ${record.panel_name}` : `${record.wattage_of_panels}W`;
   const bomRows = [
-    { sr: 1, item: "Solar Panel", desc: "", make: "", qty: panelCount, unit: "Nos" },
+    { sr: 1, item: "Solar Panel", desc: panelDesc, make: "", qty: panelCount, unit: "Nos" },
     { sr: 2, item: "Inverter", desc: inverterDesc, make: "", qty: inverterUnits, unit: "Nos" },
     { sr: 3, item: "DCDB", desc: dcdbDesc, make: "ELMEX = Fuse  HAVELLS = SPD", qty: 1, unit: "Nos" },
     { sr: 4, item: "ACDB", desc: acdbRating, make: "HAVELLS = MCB EL", qty: 1, unit: "Nos" },
@@ -311,92 +461,55 @@ function exportAllBOMsToExcel(records: BOMRecord[]) {
     return;
   }
 
-  const allBOMData: Record<string, string | number>[] = [];
+  const summaryData = records.map(record => ({
+    "Serial Number": record.name,
+    "Customer Name": record.customerName || "",
+    "Project (KW)": record.project_in_kw,
+    "Panel Wattage": record.wattage_of_panels,
+    "Phase": record.phase,
+    "AC Wire (m)": record.ac_wire,
+    "DC Wire (m)": record.dc_wire,
+    "No. of Legs": record.no_of_legs,
+    "Created": new Date(record.created_at).toLocaleDateString()
+  }));
 
-  records.forEach((record) => {
-    const bomItems = computeBOMItems(record);
-    
-    // Add header row for this BOM
-    allBOMData.push({
-      "Customer": record.name,
-      "Project (KW)": record.project_in_kw,
-      "Phase": record.phase,
-      "Panel Wattage": record.wattage_of_panels,
-      "Created": new Date(record.created_at).toLocaleDateString(),
-      "": "",
-      "": "",
-      "": ""
-    });
-
-    // Add column headers
-    allBOMData.push({
-      "Customer": "SR NO",
-      "Project (KW)": "ITEM",
-      "Phase": "DESCRIPTION",
-      "Panel Wattage": "MAKE",
-      "Created": "QTY",
-      "": "UNIT",
-      "": "",
-      "": ""
-    });
-
-    // Add BOM items
-    bomItems.forEach(row => {
-      allBOMData.push({
-        "Customer": row.sr,
-        "Project (KW)": row.item,
-        "Phase": row.desc,
-        "Panel Wattage": row.make,
-        "Created": row.qty,
-        "": row.unit,
-        "": "",
-        "": ""
-      });
-    });
-
-    // Add separator row
-    allBOMData.push({
-      "Customer": "",
-      "Project (KW)": "",
-      "Phase": "",
-      "Panel Wattage": "",
-      "Created": "",
-      "": "",
-      "": "",
-      "": ""
-    });
-  });
-
-  const worksheet = XLSX.utils.json_to_sheet(allBOMData, { skipHeader: true });
+  const worksheet = XLSX.utils.json_to_sheet(summaryData);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "All BOMs");
+  XLSX.utils.book_append_sheet(workbook, worksheet, "BOM Summary");
 
   // Set column widths
   worksheet['!cols'] = [
-    { wch: 8 },  // SR NO / Customer
-    { wch: 35 }, // Item / Project
-    { wch: 35 }, // Description / Phase
-    { wch: 20 }, // Make / Panel Wattage
-    { wch: 10 }, // QTY / Created
-    { wch: 10 }, // Unit
-    { wch: 10 },
-    { wch: 10 }
+    { wch: 15 }, // Serial Number
+    { wch: 20 }, // Customer Name
+    { wch: 12 }, // Project (KW)
+    { wch: 15 }, // Panel Wattage
+    { wch: 10 }, // Phase
+    { wch: 12 }, // AC Wire
+    { wch: 12 }, // DC Wire
+    { wch: 12 }, // No. of Legs
+    { wch: 12 }, // Created
   ];
 
-  const fileName = `All_BOMs_${new Date().toISOString().split('T')[0]}.xlsx`;
-  XLSX.writeFile(workbook, fileName);
+  XLSX.writeFile(workbook, `BOM_Summary_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
 export default function BOMManagement() {
+  const inv = useInventory();
   const [records, setRecords] = useState<BOMRecord[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showCustomCreator, setShowCustomCreator] = useState(false);
   const [showCreateOptions, setShowCreateOptions] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const [formData, setFormData] = useState({
     name: "",
+    customerName: "",
     project_in_kw: "",
     wattage_of_panels: "",
     panel_name: "",
@@ -444,12 +557,30 @@ export default function BOMManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validate panel_name is selected
+    if (!formData.panel_name) {
+      alert("Please select a Solar Panel Name");
+      return;
+    }
+
+    // Generate serial number (ROR + next number)
+    const maxNumber = records.reduce((max, record) => {
+      const match = record.name.match(/^ROR(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        return num > max ? num : max;
+      }
+      return max;
+    }, 0);
+    const serialNumber = `ROR${maxNumber + 1}`;
+
     const newRecord: BOMRecord = {
       id: `bom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      name: formData.name,
+      name: serialNumber,
+      customerName: formData.customerName,
       project_in_kw: parseFloat(formData.project_in_kw),
       wattage_of_panels: parseFloat(formData.wattage_of_panels),
-      panel_name: formData.panel_name || undefined,
+      panel_name: formData.panel_name,
       table_option: formData.table_option,
       phase: formData.phase,
       ac_wire: formData.ac_wire,
@@ -480,6 +611,7 @@ export default function BOMManagement() {
         setRecords([data.data, ...records]);
         setFormData({
           name: "",
+          customerName: "",
           project_in_kw: "",
           wattage_of_panels: "",
           panel_name: "",
@@ -740,16 +872,29 @@ export default function BOMManagement() {
         {showCustomCreator && (
           <CardContent className="border-t border-neutral-800 pt-4">
             <CustomBOMCreator
-              onSave={async (bomName, rows, panelWattage, projectKW) => {
+              nextSerialNumber={`ROR${records.reduce((max, r) => { const m = r.name.match(/^ROR(\d+)/); return m ? Math.max(max, parseInt(m[1])) : max; }, 0) + 1}`}
+              onSave={async (bomName, customerName, rows, panelWattage, projectKW, phase) => {
+                // Generate serial number (ROR + next number)
+                const maxNumber = records.reduce((max, record) => {
+                  const match = record.name.match(/^ROR(\d+)/);
+                  if (match) {
+                    const num = parseInt(match[1], 10);
+                    return num > max ? num : max;
+                  }
+                  return max;
+                }, 0);
+                const serialNumber = `ROR${maxNumber + 1}`;
+
                 // Create a custom BOM record
                 const customBOM: BOMRecord = {
                   id: `bom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                  name: bomName,
+                  name: serialNumber,
+                  customerName: customerName,
                   project_in_kw: projectKW, // Calculated from Solar Panel
                   wattage_of_panels: panelWattage, // Extracted from panel type
                   panel_name: "Custom BOM",
                   table_option: "Custom",
-                  phase: "SINGLE",
+                  phase: phase,
                   ac_wire: "",
                   dc_wire: "",
                   la_wire: "",
@@ -806,14 +951,35 @@ export default function BOMManagement() {
 
         {showForm && (
           <CardContent className="border-t border-neutral-800 pt-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-neutral-100">Fill Form BOM</h3>
+              <Button
+                onClick={() => setShowForm(false)}
+                variant="ghost"
+                size="sm"
+                className="text-neutral-400 hover:text-neutral-300"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs text-neutral-400 mb-1 block">Serial Number (Auto-generated)</label>
+                <input
+                  type="text"
+                  value={`ROR${records.reduce((max, r) => { const m = r.name.match(/^ROR(\d+)/); return m ? Math.max(max, parseInt(m[1])) : max; }, 0) + 1}`}
+                  disabled
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-neutral-400 text-sm cursor-not-allowed"
+                />
+              </div>
+
               <div>
                 <label className="text-xs text-neutral-400 mb-1 block">Customer Name *</label>
                 <input
                   type="text"
                   required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={formData.customerName}
+                  onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
                   className="w-full bg-neutral-900 border border-neutral-800 rounded px-3 py-2 text-neutral-100 text-sm"
                   placeholder="Enter customer name"
                 />
@@ -857,14 +1023,30 @@ export default function BOMManagement() {
               </div>
 
               <div>
-                <label className="text-xs text-neutral-400 mb-1 block">Solar Panel Name</label>
-                <input
-                  type="text"
-                  value={formData.panel_name}
-                  onChange={(e) => setFormData({ ...formData, panel_name: e.target.value })}
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded px-3 py-2 text-neutral-100 text-sm"
-                  placeholder="e.g., Trina 550W Mono PERC"
-                />
+                <label className="text-xs text-neutral-400 mb-1 block">Solar Panel Name *</label>
+                {isClient ? (
+                  <SolarPanelDropdown
+                    selected={formData.panel_name}
+                    onSelect={(v) => setFormData({ ...formData, panel_name: v })}
+                    onAdd={(name) => inv.addType('Solar Panel', name)}
+                    onRemove={(name) => {
+                      if (formData.panel_name === name) {
+                        const remainingTypes = inv.getTypesForItem('Solar Panel').filter(t => t !== name);
+                        setFormData({ ...formData, panel_name: remainingTypes[0] ?? "" });
+                      }
+                      inv.removeType('Solar Panel', name);
+                    }}
+                    options={inv.getTypesForItem('Solar Panel')}
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    value={formData.panel_name}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded px-3 py-2 text-neutral-100 text-sm"
+                    placeholder="Loading..."
+                    disabled
+                  />
+                )}
               </div>
 
               <div>
@@ -968,7 +1150,15 @@ export default function BOMManagement() {
                 />
               </div>
 
-              <div className="md:col-span-2 lg:col-span-3 flex justify-end">
+              <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-2">
+                <Button 
+                  type="button" 
+                  onClick={() => setShowForm(false)}
+                  variant="outline"
+                  className="border-neutral-700 text-neutral-400 hover:bg-neutral-800"
+                >
+                  Cancel
+                </Button>
                 <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
                   Add BOM Record
                 </Button>
@@ -999,7 +1189,8 @@ export default function BOMManagement() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-neutral-800 hover:bg-transparent">
-                    <TableHead className="text-neutral-400">Customer</TableHead>
+                    <TableHead className="text-neutral-400">Serial No.</TableHead>
+                    <TableHead className="text-neutral-400">Customer Name</TableHead>
                     <TableHead className="text-neutral-400">Project (KW)</TableHead>
                     <TableHead className="text-neutral-400">Panel Wattage</TableHead>
                     <TableHead className="text-neutral-400">Phase</TableHead>
@@ -1014,11 +1205,13 @@ export default function BOMManagement() {
                   {records
                     .filter(record => 
                       searchQuery.trim() === "" || 
-                      record.name.toLowerCase().includes(searchQuery.toLowerCase())
+                      record.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      (record.customerName && record.customerName.toLowerCase().includes(searchQuery.toLowerCase()))
                     )
                     .map((record) => (
                     <TableRow key={record.id} className="border-neutral-800 hover:bg-neutral-800/50">
                       <TableCell className="text-neutral-200 font-medium">{record.name}</TableCell>
+                      <TableCell className="text-neutral-200">{record.customerName || "-"}</TableCell>
                       <TableCell className="text-neutral-300">{record.project_in_kw} KW</TableCell>
                       <TableCell className="text-neutral-300">{record.wattage_of_panels}W</TableCell>
                       <TableCell className="text-neutral-300">

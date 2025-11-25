@@ -74,7 +74,7 @@ export function StockAlertsView() {
       }
     };
     fetchBOMs();
-  }, []);
+  }, [inventory.events.length]);
 
   // Calculate low stock items whenever inventory or BOMs change
   useEffect(() => {
@@ -439,6 +439,9 @@ export function StockAlertsView() {
                         <div className="flex items-center gap-3 mb-2">
                           {getStatusIcon(type.status)}
                           <span className="text-sm text-neutral-300 flex-1">{type.type}</span>
+                          {type.status === "missing" && type.shortfall && (
+                            <span className="text-lg font-bold text-red-400 shrink-0 mr-2">{type.shortfall}</span>
+                          )}
                           <span className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase border ${getStatusBadgeColor(type.status)} shrink-0`}>
                             {type.status}
                           </span>
@@ -446,7 +449,7 @@ export function StockAlertsView() {
 
                         <div className="text-sm space-y-1">
                           {type.status === "missing" ? (
-                            <div className="text-red-400 font-semibold">Out of Stock - Stock needed</div>
+                            <div className="text-red-400 font-semibold">Out of Stock</div>
                           ) : type.status === "insufficient" ? (
                             <div className="text-orange-400 font-semibold">
                               Current: {type.qty} / Required: {type.qty + (type.shortfall || 0)} • Need {type.shortfall} more

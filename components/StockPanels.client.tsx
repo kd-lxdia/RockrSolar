@@ -176,6 +176,9 @@ const TypeDropdown = (props: Omit<GenericDropdownProps, "label">) => (
 const SupplierDropdown = (props: Omit<GenericDropdownProps, "label">) => (
   <GenericDropdown label="Supplier" {...props} />
 );
+const BrandDropdown = (props: Omit<GenericDropdownProps, "label">) => (
+  <GenericDropdown label="Brand/Make" {...props} />
+);
 
 type ReportRow = {
   id: string;
@@ -231,6 +234,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
   type StockOutRow = {
     item: string;
     type: string;
+    brand: string;
     quantity: string;
     price: string;
     gst: string;
@@ -442,6 +446,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
       return {
         item: itemName,
         type: firstType,
+        brand: "", // Empty brand, will default to 'standard'
         quantity: "",
         price: "",
         gst: "",
@@ -525,6 +530,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
         return inv.addEvent({
           item: row.item,
           type: row.type,
+          brand: row.brand || undefined, // Include brand, defaults to 'standard' in backend
           qty: Number(row.quantity),
           rate: Number(row.price) || 0,
           source: globalCustomerName || "Bulk Stock Out",
@@ -726,13 +732,12 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
 
           {/* Row 2: Brand, Price, GST */}
           <div className="flex flex-wrap gap-2">
-            <Input
-              type="text"
-              value={stockInBrand}
-              onChange={(e) => setStockInBrand(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Brand/Make (optional)"
-              className="bg-neutral-900 border-neutral-800 text-neutral-100 flex-1 min-w-[180px]"
+            <BrandDropdown
+              selected={stockInBrand}
+              onSelect={(v) => setStockInBrand(v)}
+              onAdd={(name) => inv.addBrand(name)}
+              onRemove={(name) => inv.removeBrand(name)}
+              options={inv.brands}
             />
             <Input
               type="number"
@@ -835,6 +840,7 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
                     <TableRow className="border-neutral-800">
                       <TableHead className="text-neutral-400 min-w-[120px]">Item</TableHead>
                       <TableHead className="text-neutral-400 min-w-[120px]">Type</TableHead>
+                      <TableHead className="text-neutral-400 min-w-[120px]">Brand/Make</TableHead>
                       <TableHead className="text-neutral-400 min-w-[100px]">Quantity</TableHead>
                       <TableHead className="text-neutral-400 min-w-[100px]">Price</TableHead>
                       <TableHead className="text-neutral-400 min-w-[80px]">GST (%)</TableHead>
@@ -864,6 +870,36 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
                                   }}
                                 >
                                   {type}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full bg-neutral-900 border-neutral-800 text-neutral-100 hover:bg-neutral-800 hover:text-neutral-100 justify-between"
+                              >
+                                <span className="truncate">{row.brand || 'Standard'}</span>
+                                <ChevronDown className="h-3 w-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="bg-neutral-900 border-neutral-800">
+                              <DropdownMenuItem
+                                className="text-neutral-200 cursor-pointer hover:bg-neutral-800 focus:bg-neutral-800"
+                                onClick={() => updateStockOutRow(index, 'brand', '')}
+                              >
+                                Standard
+                              </DropdownMenuItem>
+                              {inv.brands.map((brand) => (
+                                <DropdownMenuItem
+                                  key={brand}
+                                  className="text-neutral-200 cursor-pointer hover:bg-neutral-800 focus:bg-neutral-800"
+                                  onClick={() => updateStockOutRow(index, 'brand', brand)}
+                                >
+                                  {brand}
                                 </DropdownMenuItem>
                               ))}
                             </DropdownMenuContent>

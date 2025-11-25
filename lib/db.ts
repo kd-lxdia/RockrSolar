@@ -116,6 +116,14 @@ export async function initDatabase() {
       );
     `;
 
+    // Create brands table
+    await sql`
+      CREATE TABLE IF NOT EXISTS brands (
+        name VARCHAR(255) PRIMARY KEY,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+
     // Create events table
     await sql`
       CREATE TABLE IF NOT EXISTS events (
@@ -373,6 +381,23 @@ export async function addSupplier(sourceName: string, supplierName: string) {
 export async function removeSupplier(supplierName: string) {
   if (!(await isDbAvailable())) return fallbackDb.removeSupplier(supplierName);
   await sql`DELETE FROM suppliers WHERE supplier_name = ${supplierName}`;
+}
+
+// Brands CRUD
+export async function getBrands() {
+  if (!(await isDbAvailable())) return fallbackDb.getBrands();
+  const { rows } = await sql`SELECT name FROM brands ORDER BY name`;
+  return rows.map(row => row.name);
+}
+
+export async function addBrand(name: string) {
+  if (!(await isDbAvailable())) return fallbackDb.addBrand(name);
+  await sql`INSERT INTO brands (name) VALUES (${name}) ON CONFLICT (name) DO NOTHING`;
+}
+
+export async function removeBrand(name: string) {
+  if (!(await isDbAvailable())) return fallbackDb.removeBrand(name);
+  await sql`DELETE FROM brands WHERE name = ${name}`;
 }
 
 // Events CRUD

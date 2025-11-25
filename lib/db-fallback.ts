@@ -38,6 +38,7 @@ let itemHSNCodes: Record<string, string> = {};
 let types: Record<string, string[]> = {};
 let sources: string[] = [];
 let suppliers: Record<string, string[]> = {};
+let brands: string[] = [];
 let events: InventoryEvent[] = [];
 let boms: BOMRecord[] = [];
 
@@ -126,6 +127,20 @@ export const fallbackDb = {
     Object.keys(suppliers).forEach(source => {
       suppliers[source] = suppliers[source].filter(s => s !== supplierName);
     });
+  },
+
+  // Brands
+  async getBrands() {
+    return [...brands];
+  },
+  async addBrand(name: string) {
+    if (!brands.includes(name)) {
+      brands.push(name);
+      brands.sort();
+    }
+  },
+  async removeBrand(name: string) {
+    brands = brands.filter(b => b !== name);
   },
 
   // Events

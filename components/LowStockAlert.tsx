@@ -39,6 +39,7 @@ const LOW_STOCK_THRESHOLD = 10;
 export function LowStockAlert() {
   const inventory = useInventory();
   const [bomRecords, setBomRecords] = useState<BOMRecord[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<StockItem[]>([]);
 
   useEffect(() => {
     const fetchBOMs = async () => {
@@ -58,60 +59,74 @@ export function LowStockAlert() {
       }
     };
     fetchBOMs();
-  }, []);
+  }, [inventory.events.length]);
 
-  const lowStockItems = useMemo(() => {
-    const stockMap: Record<string, Record<string, number>> = {};
-    inventory.events.forEach((e) => {
-      if (!stockMap[e.item]) stockMap[e.item] = {};
-      if (!stockMap[e.item][e.type]) stockMap[e.item][e.type] = 0;
-      stockMap[e.item][e.type] += e.kind === "IN" ? e.qty : -e.qty;
-    });
+  useEffect(() => {
+    const calculateAlerts = async () => {
+      // Build stock map with item::type::brand keys (brand defaults to 'standard')
+      const stockMap: Record<string, Record<string, Record<string, number>>> = {};
+      inventory.events.forEach((e) => {
+        const brand = e.brand?.trim() || 'standard';
+        if (!stockMap[e.item]) stockMap[e.item] = {};
+        if (!stockMap[e.item][e.type]) stockMap[e.item][e.type] = {};
+        if (!stockMap[e.item][e.type][brand]) stockMap[e.item][e.type][brand] = 0;
+        stockMap[e.item][e.type][brand] += e.kind === "IN" ? e.qty : -e.qty;
+      });
 
-    const alerts: StockItem[] = [];
-    if (bomRecords.length > 0) {
-      const requiredInventory = calculateRequiredInventory(bomRecords);
-      const currentInventoryMap = new Map<string, number>();
-      Object.entries(stockMap).forEach(([item, types]) => {
-        Object.entries(types).forEach(([type, qty]) => {
-          const key = item + "::" + type;
-          currentInventoryMap.set(key, qty);
+      const alerts: StockItem[] = [];
+      if (bomRecords.length > 0) {
+        const requiredInventory = await calculateRequiredInventory(bomRecords);
+        const currentInventoryMap = new Map<string, number>();
+        Object.entries(stockMap).forEach(([item, types]) => {
+          Object.entries(types).forEach(([type, brands]) => {
+            Object.entries(brands).forEach(([brand, qty]) => {
+              const key = `${item}::${type}::${brand}`;
+              currentInventoryMap.set(key, qty);
+            });
+          });
         });
-      });
-      const missingStock = findMissingStock(requiredInventory, currentInventoryMap);
-      missingStock.forEach(missing => {
-        alerts.push({
-          item: missing.item,
-          type: missing.type,
-          qty: missing.currentQty,
-          status: missing.status,
-          requiredBy: missing.requiredBy,
-          shortfall: missing.shortfall
+        const missingStock = findMissingStock(requiredInventory, currentInventoryMap);
+        missingStock.forEach(missing => {
+          alerts.push({
+            item: missing.item,
+            type: `${missing.type}${missing.brand !== 'standard' ? ` (${missing.brand})` : ''}`,
+            qty: missing.currentQty,
+            status: missing.status,
+            requiredBy: missing.requiredBy,
+            shortfall: missing.shortfall
+          });
         });
-      });
-    }
-
-    Object.entries(stockMap).forEach(([item, types]) => {
-      Object.entries(types).forEach(([type, qty]) => {
-        const alreadyAlerted = alerts.some((a) => a.item === item && a.type === type);
-        if (!alreadyAlerted) {
-          if (qty === 0 || qty < 0) {
-            alerts.push({ item, type, qty, status: "missing" });
-          } else if (qty > 0 && qty <= LOW_STOCK_THRESHOLD) {
-            alerts.push({ item, type, qty, status: qty <= CRITICAL_THRESHOLD ? "critical" : "low" });
-          }
-        }
-      });
-    });
-
-    return alerts.sort((a, b) => {
-      const statusOrder = { missing: 0, insufficient: 1, critical: 2, low: 3 };
-      if (statusOrder[a.status] !== statusOrder[b.status]) {
-        return statusOrder[a.status] - statusOrder[b.status];
       }
-      if (a.shortfall && b.shortfall) return b.shortfall - a.shortfall;
-      return a.qty - b.qty;
-    });
+
+      Object.entries(stockMap).forEach(([item, types]) => {
+        Object.entries(types).forEach(([type, brands]) => {
+          Object.entries(brands).forEach(([brand, qty]) => {
+            const typeDisplay = brand !== 'standard' ? `${type} (${brand})` : type;
+            const alreadyAlerted = alerts.some((a) => a.item === item && a.type === typeDisplay);
+            if (!alreadyAlerted) {
+              if (qty === 0 || qty < 0) {
+                alerts.push({ item, type: typeDisplay, qty, status: "missing" });
+              } else if (qty > 0 && qty <= LOW_STOCK_THRESHOLD) {
+                alerts.push({ item, type: typeDisplay, qty, status: qty <= CRITICAL_THRESHOLD ? "critical" : "low" });
+              }
+            }
+          });
+        });
+      });
+
+      const sorted = alerts.sort((a, b) => {
+        const statusOrder = { missing: 0, insufficient: 1, critical: 2, low: 3 };
+        if (statusOrder[a.status] !== statusOrder[b.status]) {
+          return statusOrder[a.status] - statusOrder[b.status];
+        }
+        if (a.shortfall && b.shortfall) return b.shortfall - a.shortfall;
+        return a.qty - b.qty;
+      });
+
+      setLowStockItems(sorted);
+    };
+
+    calculateAlerts();
   }, [inventory.events, bomRecords]);
 
   if (lowStockItems.length === 0) {
@@ -172,8 +187,12 @@ export function LowStockAlert() {
               <div className="text-right shrink-0 ml-2">
                 {item.status === "missing" ? (
                   <>
-                    <div className="text-sm font-semibold text-red-400">Missing</div>
-                    <div className="text-xs text-red-300">Stock needed</div>
+                    {item.shortfall ? (
+                      <div className="text-lg font-bold text-red-400">{item.shortfall}</div>
+                    ) : (
+                      <div className="text-sm font-semibold text-red-400">0</div>
+                    )}
+                    <div className="text-xs text-red-300">needed</div>
                   </>
                 ) : item.status === "insufficient" ? (
                   <>

@@ -28,8 +28,8 @@ const DEFAULT_BOM_ITEMS: Omit<CustomBOMRow, 'sr' | 'qty' | 'description' | 'make
   { item: "Danger Plate", unit: "Nos" },
   { item: "Fire Cylinder Co2", unit: "Nos" },
   { item: "Copper Thimble for (ACDB)", unit: "Nos" },
-  { item: "Copper Thimble for (Earthing, Inverter, Structure)", unit: "Nos" },
-  { item: "Copper Thimble for (LA)", unit: "Nos" },
+  { item: "Copper Thimble for ( Earthing , Inverter, Structure)", unit: "Nos" },
+  { item: "Copper Thimble for ( LA)", unit: "Nos" },
   { item: "AC wire", unit: "mtr" },
   { item: "AC wire Inverter to ACDB", unit: "mtr" },
   { item: "Dc wire Tin copper", unit: "mtr" },
@@ -60,13 +60,16 @@ const DEFAULT_BOM_ITEMS: Omit<CustomBOMRow, 'sr' | 'qty' | 'description' | 'make
 ];
 
 interface CustomBOMCreatorProps {
-  onSave: (bomName: string, rows: CustomBOMRow[], panelWattage: number, projectKW: number) => void;
+  onSave: (bomName: string, customerName: string, rows: CustomBOMRow[], panelWattage: number, projectKW: number, phase: "SINGLE" | "TRIPLE") => void;
   onCancel: () => void;
+  nextSerialNumber: string;
 }
 
-export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorProps) {
+export default function CustomBOMCreator({ onSave, onCancel, nextSerialNumber }: CustomBOMCreatorProps) {
   const inv = useInventory();
   const [bomName, setBomName] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [phase, setPhase] = useState<"SINGLE" | "TRIPLE">("SINGLE");
   const [rows, setRows] = useState<CustomBOMRow[]>(
     DEFAULT_BOM_ITEMS.map((item, index) => ({
       sr: index + 1,
@@ -79,6 +82,69 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
   const [newTypeInputs, setNewTypeInputs] = useState<{ [key: number]: string }>({});
   const [panelWattage, setPanelWattage] = useState<number>(0);
   const [projectKW, setProjectKW] = useState<number>(0);
+  const [typesInitialized, setTypesInitialized] = useState(false);
+
+  // Add standard BOM types to inventory on component mount (only once)
+  React.useEffect(() => {
+    if (typesInitialized) return;
+
+    const standardTypes: { [item: string]: string[] } = {
+      "DCDB": ["1 IN 1 OUT", "2 IN 2 OUT", "3 IN 3 OUT", "4 IN 4 OUT", "AS PER DESIGN"],
+      "ACDB": ["32A", "63A"],
+      "MCB": ["32A 2 POLE", "63A 2 POLE", "100A 2 POLE", "32A 4 POLE", "63A 4 POLE", "100A 4 POLE"],
+      "ELCB": ["32A 2 POLE", "63A 2 POLE", "100A 2 POLE", "32A 4 POLE", "63A 4 POLE", "100A 4 POLE"],
+      "Danger Plate": ["230V"],
+      "Fire Cylinder Co2": ["1 KG"],
+      "Copper Thimble for (ACDB)": ["Pin types 6mmsq"],
+      "Copper Thimble for ( Earthing , Inverter, Structure)": ["Ring types 6mmsq"],
+      "Copper Thimble for ( LA)": ["Ring types 16mmsq"],
+      "AC wire": ["6 sq mm Armoured", "10 sq mm Armoured", "16 sq mm Armoured", "6 sq mm", "10 sq mm"],
+      "AC wire Inverter to ACDB": ["2 CORE 6 SQ MM", "2 CORE 10 SQ MM", "4 CORE 4 SQ MM", "4 CORE 6 SQ MM"],
+      "Dc wire Tin copper": ["4 sq mm", "6 sq mm"],
+      "Earthing Wire": ["6 sq mm"],
+      "LA Earthing Wire": ["16 sq mm"],
+      "Earthing Pit Cover": ["STANDARD"],
+      "LA": ["1 MTR"],
+      "LA Fastner / LA": ["M6"],
+      "Earthing Rod/Plate": ["1 MTR | COPPER COATING", "2 MTR | COPPER COATING"],
+      "Earthing Chemical": ["CHEMICAL"],
+      "Mc4 Connector": ["1000V"],
+      "Cable Tie UV": ["200MM", "300MM"],
+      "Screw": ["1.5 INCH"],
+      "Gitti": ["1.5 INCH"],
+      "Wire PVC Tape": ["RED, BLUE, GREEN", "RED, BLUE, BLACK, YELLOW"],
+      "UPVC Pipe": ["20mm"],
+      "UPVC Cable Tray": ["50*25"],
+      "UPVC Shedal": ["20mm"],
+      "GI Shedal": ["20mm"],
+      "UPVC Tee Band": ["20mm"],
+      "UPVC Elbow": ["20mm"],
+      "Flexible Pipe": ["20mm"],
+      "Structure Nut Bolt": ["M10*25"],
+      "Thread Rod / Fastner": ["M10"]
+    };
+
+    // Check if any types are already loaded - if so, skip initialization
+    const hasAnyTypes = Object.keys(standardTypes).some(item => 
+      inv.getTypesForItem(item).length > 0
+    );
+
+    if (hasAnyTypes) {
+      setTypesInitialized(true);
+      return;
+    }
+
+    const addTypesAsync = async () => {
+      for (const [item, types] of Object.entries(standardTypes)) {
+        for (const type of types) {
+          await inv.addType(item, type);
+        }
+      }
+      setTypesInitialized(true);
+    };
+
+    addTypesAsync();
+  }, [typesInitialized, inv]); // Run only when not initialized
 
   // Extract wattage from panel type (e.g., "550W Mono" -> 550, "600 W Poly" -> 600)
   const extractWattageFromType = (type: string): number => {
@@ -147,11 +213,6 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
   };
 
   const handleSave = () => {
-    if (!bomName.trim()) {
-      alert("Please enter a BOM name");
-      return;
-    }
-
     // Filter out rows with no item, no qty, or qty = 0
     const validRows = rows.filter(row => {
       const qty = row.qty.trim();
@@ -163,7 +224,7 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
       return;
     }
 
-    onSave(bomName, validRows, panelWattage, projectKW);
+    onSave(bomName, customerName, validRows, panelWattage, projectKW, phase);
   };
 
   return (
@@ -182,18 +243,44 @@ export default function CustomBOMCreator({ onSave, onCancel }: CustomBOMCreatorP
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* BOM Name Input */}
-        <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-2">
-            BOM Name / Customer Name
-          </label>
-          <input
-            type="text"
-            value={bomName}
-            onChange={(e) => setBomName(e.target.value)}
-            placeholder="Enter BOM name..."
-            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
-          />
+        {/* Serial Number, Customer Name and Phase Input */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-300 mb-2">
+              Serial Number (Auto-generated)
+            </label>
+            <input
+              type="text"
+              value={nextSerialNumber}
+              disabled
+              className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-400 cursor-not-allowed"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-300 mb-2">
+              Customer Name *
+            </label>
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Enter customer name..."
+              className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-300 mb-2">
+              Phase
+            </label>
+            <select
+              value={phase}
+              onChange={(e) => setPhase(e.target.value as "SINGLE" | "TRIPLE")}
+              className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md text-neutral-200 focus:outline-none focus:ring-2 focus:ring-blue-600"
+            >
+              <option value="SINGLE">SINGLE</option>
+              <option value="TRIPLE">TRIPLE</option>
+            </select>
+          </div>
         </div>
 
         {/* Calculated Values Display */}
