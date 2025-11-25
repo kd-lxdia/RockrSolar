@@ -429,10 +429,14 @@ export async function seedInitialData() {
   }
   
   try {
-    // Check if data already exists
-    const { rows } = await sql`SELECT COUNT(*) as count FROM items`;
-    if (rows[0].count > 0) {
-      console.log('✅ Data already exists, skipping seed');
+    // Check if data already exists in multiple tables to prevent accidental overwrites
+    const { rows: itemRows } = await sql`SELECT COUNT(*) as count FROM items`;
+    const { rows: eventRows } = await sql`SELECT COUNT(*) as count FROM events`;
+    const { rows: bomRows } = await sql`SELECT COUNT(*) as count FROM bom`;
+    
+    // If ANY data exists (items, events, or BOMs), skip seeding
+    if (itemRows[0].count > 0 || eventRows[0].count > 0 || bomRows[0].count > 0) {
+      console.log('✅ Database has existing data, skipping seed (Items:', itemRows[0].count, 'Events:', eventRows[0].count, 'BOMs:', bomRows[0].count, ')');
       return;
     }
 
