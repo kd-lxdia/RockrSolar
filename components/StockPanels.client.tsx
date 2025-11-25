@@ -324,9 +324,9 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
   }, [inv.items.length]);
 
   // Report filters
-  const reportSource = "All"; // eslint-disable-line @typescript-eslint/no-unused-vars
-  const reportFrom = ""; // eslint-disable-line @typescript-eslint/no-unused-vars
-  const reportTo = ""; // eslint-disable-line @typescript-eslint/no-unused-vars
+  const reportSource = "All";
+  const reportFrom = "";
+  const reportTo = "";
 
   const handleStockIn = async () => {
     console.log('Stock In clicked:', { item, type, qin, stockInPrice, stockInSource, invoiceNo, stockInBrand });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // In-memory storage for BOM edits (fallback when database unavailable)
-const bomEditsStore = new Map<string, { data: any; timestamp: number }>();
+const bomEditsStore = new Map<string, { data: unknown; timestamp: number }>();
 
 export async function PUT(request: NextRequest) {
   try {

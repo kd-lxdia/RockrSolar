@@ -22,11 +22,11 @@ export async function POST(req: NextRequest) {
     if (bomRecord.table_option === "Custom") {
       // For custom BOMs, ONLY use items from request body
       if (body.customItems && Array.isArray(body.customItems) && body.customItems.length > 0) {
-        materials = body.customItems.map((row: any) => ({
-          item: row.item || "",
-          type: row.make || row.description || row.type || "Custom",
-          qty: parseFloat(row.qty) || 0,
-          description: `${row.item || "Custom Item"} (${row.make || row.description || ""})`
+        materials = body.customItems.map((row: Record<string, unknown>) => ({
+          item: (row.item as string) || "",
+          type: (row.make as string) || (row.description as string) || (row.type as string) || "Custom",
+          qty: parseFloat((row.qty as string) || "0") || 0,
+          description: `${(row.item as string) || "Custom Item"} (${(row.make as string) || (row.description as string) || ""})`
         }));
         console.log('✅ Custom BOM: Loaded', materials.length, 'custom items:', materials);
       } else {

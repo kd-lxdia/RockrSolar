@@ -20,7 +20,7 @@ export default function PipelineView() {
   const [showStockOutPopup, setShowStockOutPopup] = useState(false);
   const [stockOutMessage, setStockOutMessage] = useState("");
   const [isStockingOut, setIsStockingOut] = useState(false);
-  const [customBOMItems, setCustomBOMItems] = useState<Record<string, any[]>>({});
+  const [customBOMItems, setCustomBOMItems] = useState<Record<string, Record<string, unknown>[]>>({});
 
   // Fetch BOMs
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function PipelineView() {
   useEffect(() => {
     const loadCustomItems = async () => {
       const customBOMs = boms.filter(b => b.table_option === "Custom");
-      const itemsMap: Record<string, any[]> = {};
+      const itemsMap: Record<string, Record<string, unknown>[]> = {};
       
       for (const bom of customBOMs) {
         // Try localStorage first
@@ -128,11 +128,11 @@ export default function PipelineView() {
         const missingItems: { item: string; required: number; available: number; missing: number }[] = [];
         let isAvailable = true;
 
-        items.forEach((customItem: any) => {
-          const itemName = customItem.item || "";
-          const itemType = customItem.description || customItem.type || ""; // description is the type in custom BOMs
-          const itemBrand = (customItem.make || "").trim() || 'standard'; // make is the brand in custom BOMs, default to 'standard'
-          const requiredQty = parseFloat(customItem.qty) || 0;
+        items.forEach((customItem: Record<string, unknown>) => {
+          const itemName = (customItem.item as string) || "";
+          const itemType = (customItem.description as string) || (customItem.type as string) || ""; // description is the type in custom BOMs
+          const itemBrand = ((customItem.make as string) || "").trim() || 'standard'; // make is the brand in custom BOMs, default to 'standard'
+          const requiredQty = parseFloat((customItem.qty as string) || "0") || 0;
           
           if (!itemType) return; // Skip items without type
           

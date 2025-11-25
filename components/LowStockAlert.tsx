@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { AlertTriangle, Package, AlertCircle } from "lucide-react";
 import { useInventory } from "@/lib/inventory-store-postgres";

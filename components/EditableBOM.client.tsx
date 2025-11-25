@@ -39,7 +39,7 @@ export default function EditableBOM({ record }: { record: BOMRecord }) {
             return;
           }
         }
-      } catch (error) {
+      } catch {
         console.log('No saved edits in database, trying localStorage...');
       }
       

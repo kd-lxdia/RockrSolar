@@ -445,14 +445,15 @@ function exportBOMAsHTML(record: BOMRecord) {
 }
 
 // Open BOM in new window for printing/PDF
-function openBOMForPrint(record: BOMRecord) {
-  const html = generateBOMHTML(record);
-  const newWindow = window.open('', '_blank');
-  if (newWindow) {
-    newWindow.document.write(html);
-    newWindow.document.close();
-  }
-}
+// Disabled - using PrintableBOM component instead
+// function openBOMForPrint(record: BOMRecord) {
+//   const html = generateBOMHTML(record);
+//   const newWindow = window.open('', '_blank');
+//   if (newWindow) {
+//     newWindow.document.write(html);
+//     newWindow.document.close();
+//   }
+// }
 
 // Export all BOMs to Excel
 function exportAllBOMsToExcel(records: BOMRecord[]) {
@@ -461,7 +462,7 @@ function exportAllBOMsToExcel(records: BOMRecord[]) {
     return;
   }
 
-  const summaryData = records.map(record => ({
+  const summaryData = records.map((record: BOMRecord) => ({
     "Serial Number": record.name,
     "Customer Name": record.customerName || "",
     "Project (KW)": record.project_in_kw,
@@ -731,8 +732,8 @@ export default function BOMManagement() {
       let confirmMsg = `This will deduct all materials from this BOM from your inventory:\n\n`;
       
       if (record.table_option === "Custom" && customItems) {
-        customItems.forEach((item: any) => {
-          confirmMsg += `• ${item.item}: ${item.qty} ${item.unit || "Nos"}\n`;
+        customItems.forEach((item: Record<string, unknown>) => {
+          confirmMsg += `• ${item.item as string}: ${item.qty as string} ${(item.unit as string) || "Nos"}\n`;
         });
       } else {
         confirmMsg += `• AC Wire: ${record.ac_wire || "N/A"}\n`;
@@ -781,7 +782,7 @@ export default function BOMManagement() {
       } else {
         // Handle error from actual stock out
         if (data.insufficientItems) {
-          let errorMsg = `❌ INSUFFICIENT INVENTORY\n\n${data.details || data.error}`;
+          const errorMsg = `❌ INSUFFICIENT INVENTORY\n\n${data.details || data.error}`;
           alert(errorMsg);
         } else {
           alert(`❌ Stock Out Failed\n\n${data.error || "Unknown error occurred"}`);

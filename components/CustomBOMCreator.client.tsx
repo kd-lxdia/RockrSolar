@@ -67,7 +67,7 @@ interface CustomBOMCreatorProps {
 
 export default function CustomBOMCreator({ onSave, onCancel, nextSerialNumber }: CustomBOMCreatorProps) {
   const inv = useInventory();
-  const [bomName, setBomName] = useState("");
+  const [bomName] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [phase, setPhase] = useState<"SINGLE" | "TRIPLE">("SINGLE");
   const [rows, setRows] = useState<CustomBOMRow[]>(

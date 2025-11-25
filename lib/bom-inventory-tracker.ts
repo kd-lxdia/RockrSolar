@@ -172,7 +172,7 @@ export async function calculateRequiredInventory(bomRecords: BOMRecord[]): Promi
   const required = new Map<string, {item: string, type: string, brand: string, totalQty: number, customers: string[]}>();
   
   for (const bom of bomRecords) {
-    let inventoryItems: Array<{item: string, type: string, qty: number, customer: string}> = [];
+    let inventoryItems: Array<{item: string, type: string, brand: string, qty: number, customer: string}> = [];
     
     // For Custom BOMs, load custom items
     if (bom.table_option === "Custom") {
@@ -208,13 +208,15 @@ export async function calculateRequiredInventory(bomRecords: BOMRecord[]): Promi
       
       // Map custom items to inventory items
       if (customItems && customItems.length > 0) {
-        inventoryItems = customItems.map((item: any) => ({
-          item: item.item || "",
-          type: item.description || item.type || "", // description is the type
-          brand: (item.make || "").trim() || 'standard', // make is the brand, default to 'standard'
-          qty: parseFloat(item.qty) || 0,
-          customer: bom.name,
-        })).filter((item: any) => item.type); // Only include items with type
+        inventoryItems = customItems
+          .map((item: Record<string, unknown>) => ({
+            item: (item.item as string) || "",
+            type: (item.description as string) || (item.type as string) || "", // description is the type
+            brand: ((item.make as string) || "").trim() || 'standard', // make is the brand, default to 'standard'
+            qty: parseFloat((item.qty as string) || "0") || 0,
+            customer: bom.name,
+          }))
+          .filter((item: { item: string; type: string; brand: string; qty: number; customer: string }) => item.type); // Only include items with type
       } else {
         console.warn('⚠️ Custom BOM has no items:', bom.id, bom.name);
       }

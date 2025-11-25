@@ -25,7 +25,7 @@ async function isDbAvailable(): Promise<boolean> {
     ]);
     dbAvailable = true;
     console.log('✅ Connected to PostgreSQL database');
-  } catch (error) {
+  } catch {
     dbAvailable = false;
     console.warn('⚠️  Database unavailable - using local fallback storage');
     console.warn('💡 To use real database: ensure network access to AWS RDS or deploy to production');

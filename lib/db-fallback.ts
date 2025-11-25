@@ -34,7 +34,7 @@ export interface InventoryEvent {
 
 // In-memory storage
 let items: string[] = [];
-let itemHSNCodes: Record<string, string> = {};
+const itemHSNCodes: Record<string, string> = {};
 let types: Record<string, string[]> = {};
 let sources: string[] = [];
 let suppliers: Record<string, string[]> = {};
