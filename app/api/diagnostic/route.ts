@@ -1,9 +1,27 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db-client';
 
+interface DiagnosticsData {
+  timestamp: string;
+  environment: string | undefined;
+  postgresUrl: string;
+  postgresUrlPreview: string | undefined;
+  database?: {
+    status: string;
+    version?: string;
+    currentDatabase?: string;
+    currentUser?: string;
+    backendPid?: number;
+    error?: string;
+    code?: string;
+  };
+  tables?: string[];
+  dataCounts?: Record<string, number | string>;
+}
+
 export async function GET() {
   try {
-    const diagnostics: any = {
+    const diagnostics: DiagnosticsData = {
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
       postgresUrl: process.env.POSTGRES_URL ? '✅ Set (hidden for security)' : '❌ Not set',
@@ -31,23 +49,24 @@ export async function GET() {
       diagnostics.tables = tables.rows.map(r => r.table_name);
 
       // Count data in each table
-      const counts: any = {};
+      const counts: Record<string, number | string> = {};
       const tableNames = ['items', 'types', 'sources', 'suppliers', 'brands', 'events', 'bom', 'bom_edits'];
       for (const tableName of tableNames) {
         try {
           const countResult = await pool.query(`SELECT COUNT(*) as count FROM ${tableName}`);
           counts[tableName] = parseInt(countResult.rows[0].count);
-        } catch (e: any) {
+        } catch {
           counts[tableName] = `Table doesn't exist`;
         }
       }
       diagnostics.dataCounts = counts;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string; code?: string };
       diagnostics.database = {
         status: '❌ Connection failed',
-        error: error.message,
-        code: error.code,
+        error: err.message,
+        code: err.code,
       };
     }
 
@@ -57,9 +76,10 @@ export async function GET() {
         'Cache-Control': 'no-store, no-cache, must-revalidate',
       }
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { message?: string; stack?: string };
     return NextResponse.json(
-      { error: error.message, stack: error.stack },
+      { error: err.message, stack: err.stack },
       { status: 500 }
     );
   }

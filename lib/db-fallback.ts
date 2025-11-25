@@ -45,7 +45,7 @@ function getStorageData() {
   }
 }
 
-function saveStorageData(data: any) {
+function saveStorageData(data: Record<string, unknown>) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -55,7 +55,7 @@ function saveStorageData(data: any) {
 }
 
 // Initialize from localStorage or defaults
-let storageData = getStorageData() || {
+const storageData = getStorageData() || {
   items: [],
   itemHSNCodes: {},
   types: {},
