@@ -21,7 +21,7 @@ async function isDbAvailable(): Promise<boolean> {
   try {
     await Promise.race([
       sql`SELECT 1`,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
     ]);
     dbAvailable = true;
     console.log('✅ Connected to PostgreSQL database');

@@ -9,7 +9,7 @@ const pool = new Pool({
   },
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000, // Increased from 2s to 5s
+  connectionTimeoutMillis: 10000, // Increased to 10s
   query_timeout: 10000, // 10s query timeout
 });
 
