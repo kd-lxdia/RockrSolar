@@ -423,6 +423,12 @@ export async function deleteEvent(id: string) {
 
 // Seed initial data
 export async function seedInitialData() {
+  // CRITICAL: Never seed in production to prevent data loss
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL || process.env.AWS_REGION) {
+    console.log('🛡️ Production environment detected - seeding disabled to protect existing data');
+    return;
+  }
+  
   // Skip seeding if database is unavailable - fallback handles its own init
   if (!(await isDbAvailable())) {
     return;
