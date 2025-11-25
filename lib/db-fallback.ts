@@ -32,15 +32,62 @@ export interface InventoryEvent {
   kind: "IN" | "OUT";
 }
 
-// In-memory storage
-let items: string[] = [];
-const itemHSNCodes: Record<string, string> = {};
-let types: Record<string, string[]> = {};
-let sources: string[] = [];
-let suppliers: Record<string, string[]> = {};
-let brands: string[] = [];
-let events: InventoryEvent[] = [];
-let boms: BOMRecord[] = [];
+// LocalStorage-backed storage (persists across refreshes)
+const STORAGE_KEY = 'rsspl_fallback_db';
+
+function getStorageData() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStorageData(data: any) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn('Failed to save to localStorage:', error);
+  }
+}
+
+// Initialize from localStorage or defaults
+let storageData = getStorageData() || {
+  items: [],
+  itemHSNCodes: {},
+  types: {},
+  sources: [],
+  suppliers: {},
+  brands: [],
+  events: [],
+  boms: []
+};
+
+let items: string[] = storageData.items || [];
+const itemHSNCodes: Record<string, string> = storageData.itemHSNCodes || {};
+let types: Record<string, string[]> = storageData.types || {};
+let sources: string[] = storageData.sources || [];
+let suppliers: Record<string, string[]> = storageData.suppliers || {};
+let brands: string[] = storageData.brands || [];
+let events: InventoryEvent[] = storageData.events || [];
+let boms: BOMRecord[] = storageData.boms || [];
+
+// Helper to persist data
+function persist() {
+  saveStorageData({
+    items,
+    itemHSNCodes,
+    types,
+    sources,
+    suppliers,
+    brands,
+    events,
+    boms
+  });
+}
 
 export const fallbackDb = {
   // Items
@@ -51,12 +98,14 @@ export const fallbackDb = {
     if (!items.includes(name)) {
       items.push(name);
       items.sort();
+      persist();
     }
   },
   async removeItem(name: string) {
     items = items.filter(i => i !== name);
     delete types[name];
     delete itemHSNCodes[name];
+    persist();
   },
 
   // HSN Codes
@@ -72,6 +121,7 @@ export const fallbackDb = {
     } else {
       delete itemHSNCodes[itemName];
     }
+    persist();
   },
 
   // Types
@@ -86,11 +136,13 @@ export const fallbackDb = {
     if (!types[itemName].includes(typeName)) {
       types[itemName].push(typeName);
       types[itemName].sort();
+      persist();
     }
   },
   async removeType(itemName: string, typeName: string) {
     if (types[itemName]) {
       types[itemName] = types[itemName].filter(t => t !== typeName);
+      persist();
     }
   },
 
@@ -102,11 +154,13 @@ export const fallbackDb = {
     if (!sources.includes(name)) {
       sources.push(name);
       sources.sort();
+      persist();
     }
   },
   async removeSource(name: string) {
     sources = sources.filter(s => s !== name);
     delete suppliers[name];
+    persist();
   },
 
   // Suppliers
@@ -121,12 +175,14 @@ export const fallbackDb = {
     if (!suppliers[sourceName].includes(supplierName)) {
       suppliers[sourceName].push(supplierName);
       suppliers[sourceName].sort();
+      persist();
     }
   },
   async removeSupplier(supplierName: string) {
     Object.keys(suppliers).forEach(source => {
       suppliers[source] = suppliers[source].filter(s => s !== supplierName);
     });
+    persist();
   },
 
   // Brands
@@ -137,10 +193,12 @@ export const fallbackDb = {
     if (!brands.includes(name)) {
       brands.push(name);
       brands.sort();
+      persist();
     }
   },
   async removeBrand(name: string) {
     brands = brands.filter(b => b !== name);
+    persist();
   },
 
   // Events
@@ -149,9 +207,11 @@ export const fallbackDb = {
   },
   async addEvent(event: InventoryEvent) {
     events.push(event);
+    persist();
   },
   async deleteEvent(id: string) {
     events = events.filter(e => e.id !== id);
+    persist();
   },
 
   // BOMs
@@ -162,17 +222,20 @@ export const fallbackDb = {
   async addBOMRecord(bom: BOMRecord) {
     console.log('📋 Fallback: Adding BOM:', bom.id, bom.name);
     boms.push(bom);
+    persist();
     console.log('📋 Fallback: Total BOMs now:', boms.length);
   },
   async deleteBOMRecord(id: string) {
     console.log('📋 Fallback: Deleting BOM:', id);
     boms = boms.filter(b => b.id !== id);
+    persist();
   },
   async updateBOMRecord(id: string, updatedBOM: BOMRecord) {
     console.log('📋 Fallback: Updating BOM:', id);
     const index = boms.findIndex(b => b.id === id);
     if (index !== -1) {
       boms[index] = updatedBOM;
+      persist();
       console.log('📋 Fallback: BOM updated successfully');
     } else {
       console.log('📋 Fallback: BOM not found for update');
@@ -195,6 +258,7 @@ export const fallbackDb = {
         'Main Warehouse': ['Solar Tech India', 'Green Energy Corp'],
         'Supplier Direct': ['Direct Solar Imports']
       };
+      persist();
     }
   }
 };
