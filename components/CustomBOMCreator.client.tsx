@@ -144,7 +144,8 @@ export default function CustomBOMCreator({ onSave, onCancel, nextSerialNumber }:
     };
 
     addTypesAsync();
-  }, [typesInitialized, inv]); // Run only when not initialized
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount, ignore inv changes
 
   // Extract wattage from panel type (e.g., "550W Mono" -> 550, "600 W Poly" -> 600)
   const extractWattageFromType = (type: string): number => {
