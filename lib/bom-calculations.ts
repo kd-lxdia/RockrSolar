@@ -8,6 +8,7 @@ export interface BOMRecord {
   name: string;
   project_in_kw: number;
   wattage_of_panels: number;
+  panel_name?: string;
   table_option: string;
   phase: "SINGLE" | "TRIPLE";
   ac_wire: string;
@@ -225,8 +226,11 @@ export function generateBOMRows(record: BOMRecord): BOMRow[] {
     });
   };
   
-  // 1. Solar Panels
-  addRow(1, 'Solar Panel', '', '', panelCount, 'Nos');
+  // 1. Solar Panels - use panel_name if available
+  const panelDesc = record.panel_name 
+    ? `${WATTAGE_PANEL}W - ${record.panel_name}` 
+    : `${WATTAGE_PANEL}W`;
+  addRow(1, 'Solar Panel', panelDesc, '', panelCount, 'Nos');
   
   // 2. Inverter
   addRow(2, 'Inverter', invCfg.desc, '', invCfg.units, 'Nos');
