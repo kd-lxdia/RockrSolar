@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { saveBOMEdits, getBOMEdits, deleteBOMEdits } from '@/lib/db';
 
-// In-memory storage for BOM edits (fallback when database unavailable)
+// In-memory fallback storage for BOM edits (used when database unavailable)
 const bomEditsStore = new Map<string, { data: unknown; timestamp: number }>();
 
 export async function PUT(request: NextRequest) {
@@ -16,13 +17,18 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Save to in-memory store (works everywhere)
-    bomEditsStore.set(bomId, {
-      data: bomRows,
-      timestamp: Date.now()
-    });
-
-    console.log(`✅ Auto-saved BOM edits for ${bomId}`);
+    // Try to save to database first
+    try {
+      await saveBOMEdits(bomId, bomRows);
+      console.log(`✅ Saved BOM edits to database for ${bomId}`);
+    } catch (dbError) {
+      console.log('Database save failed, using fallback:', dbError);
+      // Fallback to in-memory store
+      bomEditsStore.set(bomId, {
+        data: bomRows,
+        timestamp: Date.now()
+      });
+    }
     
     return NextResponse.json({ 
       success: true, 
@@ -50,7 +56,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get from in-memory store
+    // Try to get from database first
+    try {
+      const dbResult = await getBOMEdits(bomId);
+      if (dbResult) {
+        return NextResponse.json({ 
+          success: true, 
+          data: dbResult.data,
+          timestamp: dbResult.timestamp,
+          updatedAt: dbResult.timestamp
+        });
+      }
+    } catch (dbError) {
+      console.log('Database read failed, checking fallback:', dbError);
+    }
+
+    // Fallback to in-memory store
     const stored = bomEditsStore.get(bomId);
 
     if (!stored) {
@@ -86,7 +107,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete from in-memory store
+    // Delete from both database and in-memory store
+    try {
+      await deleteBOMEdits(bomId);
+    } catch (dbError) {
+      console.log('Database delete failed:', dbError);
+    }
     bomEditsStore.delete(bomId);
 
     console.log(`✅ Cleared BOM edits for ${bomId}`);

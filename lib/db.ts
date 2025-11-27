@@ -509,7 +509,14 @@ export async function seedInitialData() {
 export async function getBOMRecords() {
   if (!(await isDbAvailable())) return fallbackDb.getBOMRecords();
   const result = await sql`SELECT id, name, customer_name as "customerName", project_in_kw, wattage_of_panels, panel_name, table_option, phase, ac_wire, dc_wire, la_wire, earthing_wire, no_of_legs, front_leg, back_leg, roof_design, address, created_at FROM bom ORDER BY created_at DESC;`;
-  return result.rows as BOMRecord[];
+  // Convert created_at from string/bigint to number
+  return result.rows.map(row => ({
+    ...row,
+    created_at: typeof row.created_at === 'string' ? parseInt(row.created_at, 10) : Number(row.created_at),
+    project_in_kw: Number(row.project_in_kw),
+    wattage_of_panels: Number(row.wattage_of_panels),
+    no_of_legs: Number(row.no_of_legs) || 0
+  })) as BOMRecord[];
 }
 
 export async function addBOMRecord(bom: BOMRecord) {
@@ -554,4 +561,47 @@ export async function updateBOMRecord(id: string, updatedBOM: BOMRecord) {
       address = ${updatedBOM.address || ''}
     WHERE id = ${id};
   `;
+}
+
+// BOM EDITS CRUD - Save/Load edited BOM rows to database
+export async function saveBOMEdits(bomId: string, editedData: unknown) {
+  if (!(await isDbAvailable())) {
+    console.log('Database unavailable, BOM edits not persisted');
+    return;
+  }
+  
+  const id = `edit-${bomId}`;
+  const jsonData = JSON.stringify(editedData);
+  const timestamp = Date.now();
+  
+  // Upsert - insert or update if exists
+  await sql`
+    INSERT INTO bom_edits (id, bom_id, edited_data, updated_at)
+    VALUES (${id}, ${bomId}, ${jsonData}, ${timestamp})
+    ON CONFLICT (id) DO UPDATE SET
+      edited_data = ${jsonData},
+      updated_at = ${timestamp};
+  `;
+}
+
+export async function getBOMEdits(bomId: string) {
+  if (!(await isDbAvailable())) return null;
+  
+  const result = await sql`SELECT edited_data, updated_at FROM bom_edits WHERE bom_id = ${bomId};`;
+  
+  if (result.rows.length === 0) return null;
+  
+  try {
+    return {
+      data: JSON.parse(result.rows[0].edited_data),
+      timestamp: Number(result.rows[0].updated_at)
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteBOMEdits(bomId: string) {
+  if (!(await isDbAvailable())) return;
+  await sql`DELETE FROM bom_edits WHERE bom_id = ${bomId};`;
 }

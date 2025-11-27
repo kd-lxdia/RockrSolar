@@ -49,13 +49,12 @@ export default function PipelineView() {
     fetchBOMs();
   }, []);
 
-  // Load custom items for Custom BOMs
+  // Load edited/custom items for ALL BOMs (not just Custom ones)
   useEffect(() => {
-    const loadCustomItems = async () => {
-      const customBOMs = boms.filter(b => b.table_option === "Custom");
+    const loadBOMEditedItems = async () => {
       const itemsMap: Record<string, Record<string, unknown>[]> = {};
       
-      for (const bom of customBOMs) {
+      for (const bom of boms) {
         // Try localStorage first
         const stored = localStorage.getItem(`bom-${bom.id}`);
         if (stored) {
@@ -63,11 +62,11 @@ export default function PipelineView() {
             itemsMap[bom.id] = JSON.parse(stored);
             continue;
           } catch (e) {
-            console.error('Failed to parse custom items from localStorage:', e);
+            console.error('Failed to parse edited items from localStorage:', e);
           }
         }
         
-        // Fallback to API
+        // Fallback to API (database)
         try {
           const response = await fetch(`/api/bom/edits?bomId=${bom.id}`);
           const data = await response.json();
@@ -75,7 +74,7 @@ export default function PipelineView() {
             itemsMap[bom.id] = data.data;
           }
         } catch (e) {
-          console.error('Failed to fetch custom items from API:', e);
+          console.error('Failed to fetch edited items from API:', e);
         }
       }
       
@@ -83,7 +82,7 @@ export default function PipelineView() {
     };
     
     if (boms.length > 0) {
-      loadCustomItems();
+      loadBOMEditedItems();
     }
   }, [boms]);
 
@@ -107,34 +106,21 @@ export default function PipelineView() {
   // Process BOMs to determine status
   const pipelineBOMs: PipelineBOM[] = useMemo(() => {
     return boms.map((bom) => {
-      // For Custom BOMs, check custom items inventory
-      if (bom.table_option === "Custom") {
-        const items = customBOMItems[bom.id];
-        
-        if (!items || items.length === 0) {
-          console.log('⚠️ Custom BOM has no items loaded:', bom.id, bom.name);
-          return {
-            ...bom,
-            status: "unavailable" as const,
-            missingItems: [{
-              item: "Custom items not loaded",
-              required: 0,
-              available: 0,
-              missing: 0,
-            }],
-          };
-        }
-
+      // Check if there are edited items for this BOM (works for both Custom and Standard BOMs)
+      const editedItems = customBOMItems[bom.id];
+      
+      // Use edited items if available, otherwise generate from BOM for standard BOMs
+      if (editedItems && editedItems.length > 0) {
         const missingItems: { item: string; required: number; available: number; missing: number }[] = [];
         let isAvailable = true;
 
-        items.forEach((customItem: Record<string, unknown>) => {
-          const itemName = (customItem.item as string) || "";
-          const itemType = (customItem.description as string) || (customItem.type as string) || ""; // description is the type in custom BOMs
-          const itemBrand = ((customItem.make as string) || "").trim() || 'standard'; // make is the brand in custom BOMs, default to 'standard'
-          const requiredQty = parseFloat((customItem.qty as string) || "0") || 0;
+        editedItems.forEach((editedItem: Record<string, unknown>) => {
+          const itemName = (editedItem.item as string) || "";
+          const itemType = (editedItem.description as string) || (editedItem.type as string) || "";
+          const itemBrand = ((editedItem.make as string) || "").trim() || 'standard';
+          const requiredQty = parseFloat(String(editedItem.qty || "0")) || 0;
           
-          if (!itemType) return; // Skip items without type
+          if (!itemType || requiredQty === 0) return; // Skip items without type or zero qty
           
           const key = `${itemName}::${itemType}::${itemBrand}`;
           const availableQty = stockLevels[key] || 0;
@@ -150,7 +136,7 @@ export default function PipelineView() {
           }
         });
 
-        console.log('✅ Custom BOM inventory check:', bom.name, 'Available:', isAvailable, 'Missing:', missingItems.length);
+        console.log('✅ BOM inventory check (edited):', bom.name, 'Available:', isAvailable, 'Missing:', missingItems.length);
         
         return {
           ...bom,
@@ -159,7 +145,22 @@ export default function PipelineView() {
         };
       }
 
-      // For Standard BOMs, use calculated items
+      // For Custom BOMs without edits loaded
+      if (bom.table_option === "Custom") {
+        console.log('⚠️ Custom BOM has no items loaded:', bom.id, bom.name);
+        return {
+          ...bom,
+          status: "unavailable" as const,
+          missingItems: [{
+            item: "Custom items not loaded",
+            required: 0,
+            available: 0,
+            missing: 0,
+          }],
+        };
+      }
+
+      // For Standard BOMs without edits, use calculated items
       const rows = generateBOMRows(bom);
       const missingItems: { item: string; required: number; available: number; missing: number }[] = [];
       let isAvailable = true;
@@ -212,30 +213,57 @@ export default function PipelineView() {
 
     setIsStockingOut(true);
     try {
-      const rows = generateBOMRows(bom);
+      // Use edited items if available, otherwise generate from BOM
+      const editedItems = customBOMItems[bom.id];
       
-      // Create stock out events for all items
-      for (const row of rows) {
-        if (!row.item || !row.qty) continue;
+      if (editedItems && editedItems.length > 0) {
+        // Stock out using edited BOM items
+        for (const editedItem of editedItems) {
+          const itemName = (editedItem.item as string) || "";
+          const itemType = (editedItem.description as string) || (editedItem.type as string) || "";
+          const itemBrand = ((editedItem.make as string) || "").trim() || 'standard';
+          const qty = parseFloat(String(editedItem.qty || "0")) || 0;
 
-        let qty = 0;
-        if (typeof row.qty === 'number') {
-          qty = row.qty;
-        } else {
-          const match = row.qty.match(/[\d.]+/);
-          qty = match ? parseFloat(match[0]) : 0;
+          if (qty > 0 && itemName) {
+            await addEvent({
+              item: itemName,
+              type: itemType || "BOM Item",
+              qty: qty,
+              rate: 0,
+              source: "BOM Stock Out",
+              supplier: bom.name,
+              kind: "OUT",
+              brand: itemBrand
+            });
+          }
         }
+      } else {
+        // Stock out using generated BOM rows
+        const rows = generateBOMRows(bom);
+        
+        for (const row of rows) {
+          if (!row.item || !row.qty) continue;
 
-        if (qty > 0) {
-          await addEvent({
-            item: row.item,
-            type: row.description || "BOM Item",
-            qty: qty,
-            rate: 0,
-            source: "BOM Stock Out",
-            supplier: bom.name,
-            kind: "OUT"
-          });
+          let qty = 0;
+          if (typeof row.qty === 'number') {
+            qty = row.qty;
+          } else {
+            const match = row.qty.match(/[\d.]+/);
+            qty = match ? parseFloat(match[0]) : 0;
+          }
+
+          if (qty > 0) {
+            await addEvent({
+              item: row.item,
+              type: row.description || "BOM Item",
+              qty: qty,
+              rate: 0,
+              source: "BOM Stock Out",
+              supplier: bom.name,
+              kind: "OUT",
+              brand: (row.make || "").trim() || 'standard'
+            });
+          }
         }
       }
 

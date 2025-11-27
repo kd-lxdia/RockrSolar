@@ -174,54 +174,56 @@ export async function calculateRequiredInventory(bomRecords: BOMRecord[]): Promi
   for (const bom of bomRecords) {
     let inventoryItems: Array<{item: string, type: string, brand: string, qty: number, customer: string}> = [];
     
-    // For Custom BOMs, load custom items
-    if (bom.table_option === "Custom") {
-      console.log('📦 Loading custom items for BOM:', bom.id, bom.name);
-      
-      // Try localStorage first
-      let customItems = null;
-      if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem(`bom-${bom.id}`);
-        if (stored) {
-          try {
-            customItems = JSON.parse(stored);
-            console.log('✅ Loaded from localStorage:', customItems.length, 'items');
-          } catch (e) {
-            console.error('Failed to parse custom items:', e);
-          }
-        }
-      }
-      
-      // Fallback to API
-      if (!customItems) {
+    // First try to load edited items for ANY BOM (not just Custom)
+    let editedItems = null;
+    
+    console.log('📦 Loading BOM items for:', bom.id, bom.name, 'Type:', bom.table_option);
+    
+    // Try localStorage first
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(`bom-${bom.id}`);
+      if (stored) {
         try {
-          const response = await fetch(`/api/bom/edits?bomId=${bom.id}`);
-          const data = await response.json();
-          if (data.success && data.data) {
-            customItems = data.data;
-            console.log('✅ Loaded from API:', customItems.length, 'items');
-          }
+          editedItems = JSON.parse(stored);
+          console.log('✅ Loaded edited items from localStorage:', editedItems.length, 'items');
         } catch (e) {
-          console.error('Failed to fetch custom items:', e);
+          console.error('Failed to parse edited items:', e);
         }
       }
-      
-      // Map custom items to inventory items
-      if (customItems && customItems.length > 0) {
-        inventoryItems = customItems
-          .map((item: Record<string, unknown>) => ({
-            item: (item.item as string) || "",
-            type: (item.description as string) || (item.type as string) || "", // description is the type
-            brand: ((item.make as string) || "").trim() || 'standard', // make is the brand, default to 'standard'
-            qty: parseFloat((item.qty as string) || "0") || 0,
-            customer: bom.name,
-          }))
-          .filter((item: { item: string; type: string; brand: string; qty: number; customer: string }) => item.type); // Only include items with type
-      } else {
-        console.warn('⚠️ Custom BOM has no items:', bom.id, bom.name);
+    }
+    
+    // Fallback to API if no localStorage data
+    if (!editedItems) {
+      try {
+        const response = await fetch(`/api/bom/edits?bomId=${bom.id}`);
+        const data = await response.json();
+        if (data.success && data.data) {
+          editedItems = data.data;
+          console.log('✅ Loaded edited items from API:', editedItems.length, 'items');
+        }
+      } catch (e) {
+        console.error('Failed to fetch edited items:', e);
       }
+    }
+    
+    // Use edited items if available
+    if (editedItems && editedItems.length > 0) {
+      inventoryItems = editedItems
+        .map((item: Record<string, unknown>) => ({
+          item: (item.item as string) || "",
+          type: (item.description as string) || (item.type as string) || "",
+          brand: ((item.make as string) || "").trim() || 'standard',
+          qty: parseFloat(String(item.qty || "0")) || 0,
+          customer: bom.name,
+        }))
+        .filter((item: { item: string; type: string; brand: string; qty: number; customer: string }) => item.type && item.qty > 0);
+      
+      console.log('✅ Using edited items for BOM:', bom.name, 'Items:', inventoryItems.length);
+    } else if (bom.table_option === "Custom") {
+      // Custom BOM with no items loaded
+      console.warn('⚠️ Custom BOM has no items:', bom.id, bom.name);
     } else {
-      // For Standard BOMs, use calculated rows
+      // For Standard BOMs without edits, use calculated rows
       const rows = generateBOMRows(bom);
       
       rows.forEach(row => {
@@ -229,6 +231,8 @@ export async function calculateRequiredInventory(bomRecords: BOMRecord[]): Promi
         const items = mapBOMRowToInventory(row as any, bom.name);
         inventoryItems.push(...items);
       });
+      
+      console.log('✅ Using generated items for BOM:', bom.name, 'Items:', inventoryItems.length);
     }
     
     // Add to required inventory map - use item::type::brand as key
