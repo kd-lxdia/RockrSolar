@@ -267,8 +267,8 @@ function computeBOMItems(record: BOMRecord) {
   // 9. Per-leg calculations
   const perLeg = (qty: number) => noOfLegs > 0 ? Math.round(qty * noOfLegs * 100) / 100 : qty;
 
-  // Build BOM table rows
-  const panelDesc = record.panel_name ? `${record.wattage_of_panels}W - ${record.panel_name}` : `${record.wattage_of_panels}W`;
+  // Build BOM table rows - use panel_name directly (must match inventory exactly)
+  const panelDesc = record.panel_name || `${record.wattage_of_panels}W`;
   const bomRows = [
     { sr: 1, item: "Solar Panel", desc: panelDesc, make: "", qty: panelCount, unit: "Nos" },
     { sr: 2, item: "Inverter", desc: inverterDesc, make: "", qty: inverterUnits, unit: "Nos" },

@@ -226,10 +226,8 @@ export function generateBOMRows(record: BOMRecord): BOMRow[] {
     });
   };
   
-  // 1. Solar Panels - use panel_name if available
-  const panelDesc = record.panel_name 
-    ? `${WATTAGE_PANEL}W - ${record.panel_name}` 
-    : `${WATTAGE_PANEL}W`;
+  // 1. Solar Panels - use panel_name directly as the description (exact match for inventory)
+  const panelDesc = record.panel_name || `${WATTAGE_PANEL}W`;
   addRow(1, 'Solar Panel', panelDesc, '', panelCount, 'Nos');
   
   // 2. Inverter
