@@ -53,6 +53,7 @@ export interface InventoryEvent {
 export interface BOMRecord {
   id: string;
   name: string;
+  customerName?: string;
   project_in_kw: number;
   wattage_of_panels: number;
   panel_name?: string;
@@ -66,6 +67,7 @@ export interface BOMRecord {
   front_leg: string;
   back_leg: string;
   roof_design: string;
+  address?: string;
   created_at: number;
 }
 
@@ -506,20 +508,20 @@ export async function seedInitialData() {
 // BOM CRUD
 export async function getBOMRecords() {
   if (!(await isDbAvailable())) return fallbackDb.getBOMRecords();
-  const result = await sql`SELECT * FROM bom ORDER BY created_at DESC;`;
+  const result = await sql`SELECT id, name, customer_name as "customerName", project_in_kw, wattage_of_panels, panel_name, table_option, phase, ac_wire, dc_wire, la_wire, earthing_wire, no_of_legs, front_leg, back_leg, roof_design, address, created_at FROM bom ORDER BY created_at DESC;`;
   return result.rows as BOMRecord[];
 }
 
 export async function addBOMRecord(bom: BOMRecord) {
   if (!(await isDbAvailable())) return fallbackDb.addBOMRecord(bom);
   await sql`
-    INSERT INTO bom (id, name, project_in_kw, wattage_of_panels, panel_name, table_option, phase, 
+    INSERT INTO bom (id, name, customer_name, project_in_kw, wattage_of_panels, panel_name, table_option, phase, 
                      ac_wire, dc_wire, la_wire, earthing_wire, no_of_legs, 
-                     front_leg, back_leg, roof_design, created_at)
-    VALUES (${bom.id}, ${bom.name}, ${bom.project_in_kw}, ${bom.wattage_of_panels}, 
+                     front_leg, back_leg, roof_design, address, created_at)
+    VALUES (${bom.id}, ${bom.name}, ${bom.customerName || ''}, ${bom.project_in_kw}, ${bom.wattage_of_panels}, 
             ${bom.panel_name || null}, ${bom.table_option}, ${bom.phase}, ${bom.ac_wire || ''}, ${bom.dc_wire || ''}, 
             ${bom.la_wire || ''}, ${bom.earthing_wire || ''}, ${bom.no_of_legs || 0}, 
-            ${bom.front_leg || ''}, ${bom.back_leg || ''}, ${bom.roof_design || ''}, ${bom.created_at});
+            ${bom.front_leg || ''}, ${bom.back_leg || ''}, ${bom.roof_design || ''}, ${bom.address || ''}, ${bom.created_at});
   `;
 }
 
@@ -535,6 +537,7 @@ export async function updateBOMRecord(id: string, updatedBOM: BOMRecord) {
     UPDATE bom 
     SET 
       name = ${updatedBOM.name},
+      customer_name = ${updatedBOM.customerName || ''},
       project_in_kw = ${updatedBOM.project_in_kw},
       wattage_of_panels = ${updatedBOM.wattage_of_panels},
       panel_name = ${updatedBOM.panel_name || ''},
@@ -547,7 +550,8 @@ export async function updateBOMRecord(id: string, updatedBOM: BOMRecord) {
       no_of_legs = ${updatedBOM.no_of_legs},
       front_leg = ${updatedBOM.front_leg},
       back_leg = ${updatedBOM.back_leg},
-      roof_design = ${updatedBOM.roof_design}
+      roof_design = ${updatedBOM.roof_design},
+      address = ${updatedBOM.address || ''}
     WHERE id = ${id};
   `;
 }
