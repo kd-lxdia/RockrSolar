@@ -120,7 +120,7 @@ export default function Page() {
                   Settings
                 </h1>
                 <div className="text-[11px] text-neutral-500">
-                  Configure type and HSN code mappings
+                  Configure type and HSN code mappings, stock alert thresholds
                 </div>
               </div>
               <Settings />

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Save, RefreshCw, Edit2, Check, X } from "lucide-react";
+import { Save, RefreshCw, Edit2, Check, X, AlertTriangle } from "lucide-react";
 import { useInventory } from "@/lib/inventory-store-postgres";
 import {
   DropdownMenu,
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
+import { getStockThresholds, setStockThresholds } from "@/lib/stock-thresholds";
 
 interface ItemHSNMapping {
   name: string;
@@ -38,6 +39,28 @@ export default function Settings() {
   const [newItemName, setNewItemName] = useState("");
   const [newTypeName, setNewTypeName] = useState("");
   const [selectedItemForType, setSelectedItemForType] = useState("");
+  const [criticalThreshold, setCriticalThreshold] = useState(5);
+  const [lowThreshold, setLowThreshold] = useState(10);
+
+  // Load stock thresholds from localStorage
+  useEffect(() => {
+    const thresholds = getStockThresholds();
+    setCriticalThreshold(thresholds.critical);
+    setLowThreshold(thresholds.low);
+  }, []);
+
+  const handleSaveThresholds = () => {
+    if (criticalThreshold >= lowThreshold) {
+      alert("Critical threshold must be less than Low Stock threshold");
+      return;
+    }
+    if (criticalThreshold < 0 || lowThreshold < 0) {
+      alert("Thresholds must be positive numbers");
+      return;
+    }
+    setStockThresholds({ critical: criticalThreshold, low: lowThreshold });
+    alert("Stock alert thresholds saved successfully!");
+  };
 
   // Load mappings from database and build all items list
   const loadMappings = async () => {
@@ -221,6 +244,67 @@ export default function Settings() {
 
   return (
     <div className="space-y-4">
+      {/* Stock Alert Thresholds */}
+      <Card className="bg-neutral-900/60 border-neutral-800">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-neutral-100 flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-orange-400" />
+            Stock Alert Thresholds
+          </CardTitle>
+          <p className="text-xs text-neutral-500 mt-1">
+            Set the limits for when items should be flagged as &quot;Critical&quot; or &quot;Low Stock&quot; in alerts
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Critical Threshold */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-red-400">Critical Stock Limit</label>
+              <p className="text-xs text-neutral-500">Items at or below this quantity will show as CRITICAL (red)</p>
+              <div className="flex gap-2 items-center">
+                <Input
+                  type="number"
+                  min="0"
+                  value={criticalThreshold}
+                  onChange={(e) => setCriticalThreshold(Math.floor(Number(e.target.value) || 0))}
+                  className="bg-neutral-900 border-neutral-800 text-neutral-100 w-32"
+                />
+                <span className="text-xs text-neutral-500">units</span>
+              </div>
+            </div>
+
+            {/* Low Stock Threshold */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-yellow-400">Low Stock Limit</label>
+              <p className="text-xs text-neutral-500">Items at or below this quantity will show as LOW STOCK (yellow)</p>
+              <div className="flex gap-2 items-center">
+                <Input
+                  type="number"
+                  min="0"
+                  value={lowThreshold}
+                  onChange={(e) => setLowThreshold(Math.floor(Number(e.target.value) || 0))}
+                  className="bg-neutral-900 border-neutral-800 text-neutral-100 w-32"
+                />
+                <span className="text-xs text-neutral-500">units</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleSaveThresholds}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save Thresholds
+            </Button>
+            <div className="text-xs text-neutral-500">
+              Current: Critical &le; {criticalThreshold} | Low Stock &le; {lowThreshold}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Items Management */}
       <Card className="bg-neutral-900/60 border-neutral-800">
         <CardHeader>

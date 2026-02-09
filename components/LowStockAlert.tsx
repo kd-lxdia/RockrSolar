@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { AlertTriangle, Package, AlertCircle } from "lucide-react";
 import { useInventory } from "@/lib/inventory-store-postgres";
 import { calculateRequiredInventory, findMissingStock } from "@/lib/bom-inventory-tracker";
+import { getStockThresholds } from "@/lib/stock-thresholds";
 
 interface StockItem {
   item: string;
@@ -33,13 +34,18 @@ interface BOMRecord {
   created_at: number;
 }
 
-const CRITICAL_THRESHOLD = 5;
-const LOW_STOCK_THRESHOLD = 10;
-
 export function LowStockAlert() {
   const inventory = useInventory();
   const [bomRecords, setBomRecords] = useState<BOMRecord[]>([]);
   const [lowStockItems, setLowStockItems] = useState<StockItem[]>([]);
+  const [thresholds, setThresholds] = useState(getStockThresholds());
+
+  // Listen for threshold changes from Settings
+  useEffect(() => {
+    const handler = () => setThresholds(getStockThresholds());
+    window.addEventListener("stock-thresholds-changed", handler);
+    return () => window.removeEventListener("stock-thresholds-changed", handler);
+  }, []);
 
   useEffect(() => {
     const fetchBOMs = async () => {
@@ -106,8 +112,8 @@ export function LowStockAlert() {
             if (!alreadyAlerted) {
               if (qty === 0 || qty < 0) {
                 alerts.push({ item, type: typeDisplay, qty, status: "missing" });
-              } else if (qty > 0 && qty <= LOW_STOCK_THRESHOLD) {
-                alerts.push({ item, type: typeDisplay, qty, status: qty <= CRITICAL_THRESHOLD ? "critical" : "low" });
+              } else if (qty > 0 && qty <= thresholds.low) {
+                alerts.push({ item, type: typeDisplay, qty, status: qty <= thresholds.critical ? "critical" : "low" });
               }
             }
           });
@@ -127,7 +133,7 @@ export function LowStockAlert() {
     };
 
     calculateAlerts();
-  }, [inventory.events, bomRecords]);
+  }, [inventory.events, bomRecords, thresholds]);
 
   if (lowStockItems.length === 0) {
     return (

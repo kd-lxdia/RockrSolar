@@ -83,7 +83,16 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       if (typesData.success) setTypesMap(typesData.data);
       if (sourcesData.success) setSources(sourcesData.data);
       if (suppliersData.success) setSuppliersMap(suppliersData.data);
-      if (eventsData.success) setEvents(eventsData.data);
+      if (eventsData.success) {
+        // Normalize qty, rate, timestamp to numbers (DB may return strings)
+        const normalized = (eventsData.data as InventoryEvent[]).map(e => ({
+          ...e,
+          qty: Math.floor(Number(e.qty) || 0),
+          rate: Number(e.rate) || 0,
+          timestamp: Number(e.timestamp) || 0,
+        }));
+        setEvents(normalized);
+      }
       if (brandsData.success) setBrands(brandsData.data);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -307,9 +316,16 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       
       if (res.ok) {
         const result = await res.json();
-        setEvents(prev => [result.data, ...prev]);
+        // Normalize qty, rate, timestamp to numbers (API may return strings)
+        const normalizedEvent = {
+          ...result.data,
+          qty: Math.floor(Number(result.data.qty) || 0),
+          rate: Number(result.data.rate) || 0,
+          timestamp: Number(result.data.timestamp) || 0,
+        };
+        setEvents(prev => [normalizedEvent, ...prev]);
         pushNotification(
-          `${event.kind === "IN" ? "Added" : "Removed"} ${event.qty} ${event.item}(s)`,
+          `${event.kind === "IN" ? "Added" : "Removed"} ${normalizedEvent.qty} ${event.item}(s)`,
           event.kind === "IN" ? "in" : "out"
         );
       }

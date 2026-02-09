@@ -102,7 +102,12 @@ export function HistoryTable({ mode }: { mode: Mode }) {
                   <TableCell className="text-neutral-300">{(r as InventoryEvent).supplier}</TableCell>
                   {role === "admin" && <TableCell className="text-neutral-300">{Number((r as InventoryEvent).rate).toFixed(2)}</TableCell>}
                   <TableCell className="text-neutral-300">
-                    {new Date((r as InventoryEvent).timestamp).toLocaleString()}
+                    {(() => {
+                      const ts = Number((r as InventoryEvent).timestamp);
+                      if (!ts || isNaN(ts)) return "N/A";
+                      const d = new Date(ts);
+                      return isNaN(d.getTime()) ? "N/A" : d.toLocaleString();
+                    })()}
                   </TableCell>
                 </>
               )}
