@@ -339,10 +339,16 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
 
     try {
       console.log('Adding stock in event...');
+      const qty = Math.floor(Math.abs(Number(qin))); // Ensure positive integer qty
+      if (qty <= 0) {
+        alert('Quantity must be a positive number');
+        return;
+      }
+
       await inv.addEvent({
         item,
         type,
-        qty: Number(qin),
+        qty: qty,
         rate: stockInPrice !== "" ? Number(stockInPrice) : 0,
         source: stockInSource || "Unknown",
         supplier: invoiceNo.trim() || "Unknown",
@@ -396,10 +402,16 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
           // Last field in row - process if has quantity
           const rowData = stockOutRows[rowIndex];
           if (rowData.item && rowData.type && rowData.quantity && Number(rowData.quantity) > 0) {
+            const qty = Math.floor(Math.abs(Number(rowData.quantity))); // Ensure positive integer qty
+            if (qty <= 0) {
+              alert('Quantity must be a positive number');
+              return;
+            }
+
             await inv.addEvent({
               item: rowData.item,
               type: rowData.type,
-              qty: Number(rowData.quantity),
+              qty: qty,
               rate: Number(rowData.price) || 0,
               source: globalCustomerName || "Bulk Stock Out",
               supplier: globalInvoiceNo || "Unknown",
@@ -432,9 +444,10 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
   // Stock Out Table Functions
   const getCurrentStock = React.useCallback((itemName: string, type: string): number => {
     if (!itemName || !type) return 0;
-    return inv.events
+    const stock = inv.events
       .filter(e => e.item === itemName && e.type === type)
       .reduce((total, e) => total + (e.kind === "IN" ? e.qty : -e.qty), 0);
+    return Math.floor(stock); // Ensure integer display
   }, [inv.events]);
 
   const initializeStockOutTable = () => {
@@ -526,12 +539,13 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
     try {
       // Process all rows with await
       const promises = validRows.map(row => {
-        console.log('Processing row:', row);
+        const qty = Math.floor(Math.abs(Number(row.quantity))); // Ensure positive integer qty
+        console.log('Processing row:', row, 'qty:', qty);
         return inv.addEvent({
           item: row.item,
           type: row.type,
           brand: row.brand || undefined, // Include brand, defaults to 'standard' in backend
-          qty: Number(row.quantity),
+          qty: qty,
           rate: Number(row.price) || 0,
           source: globalCustomerName || "Bulk Stock Out",
           supplier: globalInvoiceNo || "Unknown",

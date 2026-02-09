@@ -92,15 +92,15 @@ export function HistoryTable({ mode }: { mode: Mode }) {
               <TableCell className="text-neutral-300">{r.item}</TableCell>
               <TableCell className="text-neutral-300">{r.type}</TableCell>
               {mode === "total" ? (
-                <TableCell className="text-green-400">{r.qty}</TableCell>
+                <TableCell className="text-green-400">{Math.floor(r.qty)}</TableCell>
               ) : (
                 <>
                   <TableCell className={(r as InventoryEvent).kind === "IN" ? "text-green-400" : "text-orange-400"}>
-                    {r.qty}
+                    {Math.floor(r.qty)}
                   </TableCell>
                   <TableCell className="text-neutral-300">{(r as InventoryEvent).source}</TableCell>
                   <TableCell className="text-neutral-300">{(r as InventoryEvent).supplier}</TableCell>
-                  {role === "admin" && <TableCell className="text-neutral-300">{(r as InventoryEvent).rate}</TableCell>}
+                  {role === "admin" && <TableCell className="text-neutral-300">{Number((r as InventoryEvent).rate).toFixed(2)}</TableCell>}
                   <TableCell className="text-neutral-300">
                     {new Date((r as InventoryEvent).timestamp).toLocaleString()}
                   </TableCell>
