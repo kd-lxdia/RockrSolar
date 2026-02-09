@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { AlertTriangle, Package, AlertCircle } from "lucide-react";
 import { useInventory } from "@/lib/inventory-store-postgres";
 import { calculateRequiredInventory, findMissingStock } from "@/lib/bom-inventory-tracker";
-import { getStockThresholds } from "@/lib/stock-thresholds";
+import { getThresholdsForItem } from "@/lib/stock-thresholds";
 
 interface StockItem {
   item: string;
@@ -38,13 +38,13 @@ export function LowStockAlert() {
   const inventory = useInventory();
   const [bomRecords, setBomRecords] = useState<BOMRecord[]>([]);
   const [lowStockItems, setLowStockItems] = useState<StockItem[]>([]);
-  const [thresholds, setThresholds] = useState(getStockThresholds());
+  const [thresholdVersion, setThresholdVersion] = useState(0); // Trigger re-renders on threshold changes
 
   // Listen for threshold changes from Settings + load saved thresholds on mount
   useEffect(() => {
-    // Read saved thresholds on client mount (SSR returns defaults)
-    setThresholds(getStockThresholds());
-    const handler = () => setThresholds(getStockThresholds());
+    // Trigger initial calculation and re-calculation on threshold changes
+    setThresholdVersion(v => v + 1);
+    const handler = () => setThresholdVersion(v => v + 1);
     window.addEventListener("stock-thresholds-changed", handler);
     return () => window.removeEventListener("stock-thresholds-changed", handler);
   }, []);
@@ -112,6 +112,8 @@ export function LowStockAlert() {
             const typeDisplay = brand !== 'standard' ? `${type} (${brand})` : type;
             const alreadyAlerted = alerts.some((a) => a.item === item && a.type === typeDisplay);
             if (!alreadyAlerted) {
+              // Get item-specific thresholds (falls back to global)
+              const thresholds = getThresholdsForItem(item);
               if (qty === 0 || qty < 0) {
                 alerts.push({ item, type: typeDisplay, qty, status: "missing" });
               } else if (qty > 0 && qty <= thresholds.low) {
@@ -135,7 +137,7 @@ export function LowStockAlert() {
     };
 
     calculateAlerts();
-  }, [inventory.events, bomRecords, thresholds]);
+  }, [inventory.events, bomRecords, thresholdVersion]);
 
   if (lowStockItems.length === 0) {
     return (

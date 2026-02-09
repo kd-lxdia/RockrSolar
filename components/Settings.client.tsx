@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Save, RefreshCw, Edit2, Check, X, AlertTriangle } from "lucide-react";
+import { Save, RefreshCw, Edit2, Check, X, AlertTriangle, Package, Search } from "lucide-react";
 import { useInventory } from "@/lib/inventory-store-postgres";
 import {
   DropdownMenu,
@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
-import { getStockThresholds, setStockThresholds } from "@/lib/stock-thresholds";
+import { setStockThresholds, getAllThresholdSettings, setItemThreshold, removeItemThreshold } from "@/lib/stock-thresholds";
 
 interface ItemHSNMapping {
   name: string;
@@ -41,12 +41,18 @@ export default function Settings() {
   const [selectedItemForType, setSelectedItemForType] = useState("");
   const [criticalThreshold, setCriticalThreshold] = useState(5);
   const [lowThreshold, setLowThreshold] = useState(10);
+  const [itemThresholds, setItemThresholds] = useState<Record<string, { critical: number; low: number }>>({});
+  const [editingItemThreshold, setEditingItemThreshold] = useState<string | null>(null);
+  const [editItemCritical, setEditItemCritical] = useState(0);
+  const [editItemLow, setEditItemLow] = useState(0);
+  const [itemThresholdSearch, setItemThresholdSearch] = useState("");
 
   // Load stock thresholds from localStorage
   useEffect(() => {
-    const thresholds = getStockThresholds();
-    setCriticalThreshold(thresholds.critical);
-    setLowThreshold(thresholds.low);
+    const settings = getAllThresholdSettings();
+    setCriticalThreshold(settings.global.critical);
+    setLowThreshold(settings.global.low);
+    setItemThresholds(settings.items);
   }, []);
 
   const handleSaveThresholds = () => {
@@ -60,6 +66,39 @@ export default function Settings() {
     }
     setStockThresholds({ critical: criticalThreshold, low: lowThreshold });
     alert("Stock alert thresholds saved successfully!");
+  };
+
+  const handleEditItemThreshold = (itemName: string) => {
+    const current = itemThresholds[itemName] || { critical: criticalThreshold, low: lowThreshold };
+    setEditingItemThreshold(itemName);
+    setEditItemCritical(current.critical);
+    setEditItemLow(current.low);
+  };
+
+  const handleSaveItemThreshold = (itemName: string) => {
+    if (editItemCritical >= editItemLow) {
+      alert("Critical threshold must be less than Low Stock threshold");
+      return;
+    }
+    if (editItemCritical < 0 || editItemLow < 0) {
+      alert("Thresholds must be positive numbers");
+      return;
+    }
+    setItemThreshold(itemName, { critical: editItemCritical, low: editItemLow });
+    setItemThresholds(prev => ({ ...prev, [itemName]: { critical: editItemCritical, low: editItemLow } }));
+    setEditingItemThreshold(null);
+  };
+
+  const handleResetItemThreshold = (itemName: string) => {
+    removeItemThreshold(itemName);
+    setItemThresholds(prev => {
+      const next = { ...prev };
+      delete next[itemName];
+      return next;
+    });
+    if (editingItemThreshold === itemName) {
+      setEditingItemThreshold(null);
+    }
   };
 
   // Load mappings from database and build all items list
@@ -301,6 +340,149 @@ export default function Settings() {
             <div className="text-xs text-neutral-500">
               Current: Critical &le; {criticalThreshold} | Low Stock &le; {lowThreshold}
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Per-Item Thresholds */}
+      <Card className="bg-neutral-900/60 border-neutral-800">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-neutral-100 flex items-center gap-2">
+            <Package className="h-5 w-5 text-blue-400" />
+            Per-Item Thresholds
+          </CardTitle>
+          <p className="text-xs text-neutral-500 mt-1">
+            Set individual threshold limits for each item. Items without custom thresholds use the global defaults above.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-500" />
+            <input
+              type="text"
+              placeholder="Search items..."
+              value={itemThresholdSearch}
+              onChange={(e) => setItemThresholdSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-neutral-900 border border-neutral-800 rounded-md text-sm text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+            />
+          </div>
+
+          {/* Items Table */}
+          <div className="overflow-x-auto border border-neutral-800 rounded-md">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-neutral-800 hover:bg-transparent">
+                  <TableHead className="text-neutral-400">Item</TableHead>
+                  <TableHead className="text-neutral-400 text-center">Critical Limit</TableHead>
+                  <TableHead className="text-neutral-400 text-center">Low Stock Limit</TableHead>
+                  <TableHead className="text-neutral-400 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {inv.items
+                  .filter(item => !itemThresholdSearch.trim() || item.toLowerCase().includes(itemThresholdSearch.toLowerCase()))
+                  .map((item) => {
+                    const isEditing = editingItemThreshold === item;
+                    const hasCustom = !!itemThresholds[item];
+                    const currentThresholds = itemThresholds[item] || { critical: criticalThreshold, low: lowThreshold };
+
+                    return (
+                      <TableRow key={item} className="border-neutral-800 hover:bg-neutral-800/50">
+                        <TableCell className="text-neutral-200">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{item}</span>
+                            {hasCustom && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600/20 text-blue-400 border border-blue-600/30 uppercase font-medium">
+                                Custom
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              min="0"
+                              value={editItemCritical}
+                              onChange={(e) => setEditItemCritical(Math.floor(Number(e.target.value) || 0))}
+                              className="bg-neutral-900 border-neutral-800 text-neutral-100 w-20 mx-auto text-center"
+                            />
+                          ) : (
+                            <span className={`font-mono ${hasCustom ? "text-red-400 font-semibold" : "text-neutral-500"}`}>
+                              {currentThresholds.critical}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              min="0"
+                              value={editItemLow}
+                              onChange={(e) => setEditItemLow(Math.floor(Number(e.target.value) || 0))}
+                              className="bg-neutral-900 border-neutral-800 text-neutral-100 w-20 mx-auto text-center"
+                            />
+                          ) : (
+                            <span className={`font-mono ${hasCustom ? "text-yellow-400 font-semibold" : "text-neutral-500"}`}>
+                              {currentThresholds.low}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isEditing ? (
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                onClick={() => handleSaveItemThreshold(item)}
+                                variant="ghost"
+                                size="sm"
+                                className="text-green-400 hover:text-green-300 hover:bg-green-950/50"
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                onClick={() => setEditingItemThreshold(null)}
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-400 hover:text-red-300 hover:bg-red-950/50"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                onClick={() => handleEditItemThreshold(item)}
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-400 hover:text-blue-300 hover:bg-blue-950/50"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              {hasCustom && (
+                                <Button
+                                  onClick={() => handleResetItemThreshold(item)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800"
+                                  title="Reset to global defaults"
+                                >
+                                  <RefreshCw className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-neutral-500 bg-neutral-900/40 p-3 rounded border border-neutral-800">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>Items without custom thresholds use global defaults (Critical &le; {criticalThreshold}, Low &le; {lowThreshold}). Click the edit icon to set custom limits for any item.</span>
           </div>
         </CardContent>
       </Card>
