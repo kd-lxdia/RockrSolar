@@ -81,6 +81,8 @@ export function HistoryTable({ mode }: { mode: Mode }) {
                 <TableHead className="text-neutral-400">Source</TableHead>
                 <TableHead className="text-neutral-400">Invoice</TableHead>
                 {role === "admin" && <TableHead className="text-neutral-400">Rate</TableHead>}
+                {role === "admin" && <TableHead className="text-neutral-400">GST %</TableHead>}
+                {role === "admin" && <TableHead className="text-neutral-400">Amount</TableHead>}
                 <TableHead className="text-neutral-400">Date</TableHead>
               </>
             )}
@@ -101,6 +103,21 @@ export function HistoryTable({ mode }: { mode: Mode }) {
                   <TableCell className="text-neutral-300">{(r as InventoryEvent).source}</TableCell>
                   <TableCell className="text-neutral-300">{(r as InventoryEvent).supplier}</TableCell>
                   {role === "admin" && <TableCell className="text-neutral-300">{Number((r as InventoryEvent).rate).toFixed(2)}</TableCell>}
+                  {role === "admin" && <TableCell className="text-neutral-300">{Number((r as InventoryEvent).gst) || 0}%</TableCell>}
+                  {role === "admin" && (
+                    <TableCell className="text-neutral-300 font-medium">
+                      {(() => {
+                        const evt = r as InventoryEvent;
+                        const rate = Number(evt.rate) || 0;
+                        const qty = Math.floor(evt.qty);
+                        const gstPct = Number(evt.gst) || 0;
+                        const baseAmount = qty * rate;
+                        const gstAmount = baseAmount * (gstPct / 100);
+                        const total = baseAmount + gstAmount;
+                        return total > 0 ? total.toFixed(2) : "-";
+                      })()}
+                    </TableCell>
+                  )}
                   <TableCell className="text-neutral-300">
                     {(() => {
                       const ts = Number((r as InventoryEvent).timestamp);
@@ -115,7 +132,7 @@ export function HistoryTable({ mode }: { mode: Mode }) {
           ))}
           {rows.length === 0 && (
             <TableRow className="border-neutral-800">
-              <TableCell colSpan={mode === "total" ? 3 : 7} className="text-center text-neutral-500 py-8">
+              <TableCell colSpan={mode === "total" ? 3 : (role === "admin" ? 9 : 6)} className="text-center text-neutral-500 py-8">
                 No {mode === "total" ? "stock" : `${mode} events`} found
               </TableCell>
             </TableRow>

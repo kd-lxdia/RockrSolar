@@ -130,9 +130,9 @@ export function StockAlertsView() {
             if (!alreadyAlerted) {
               // Get item-specific thresholds (falls back to global)
               const thresholds = getThresholdsForItem(item);
-              if (qty === 0 || qty < 0) {
-                alerts.push({ item, type: typeDisplay, qty, status: "missing" });
-              } else if (qty > 0 && qty <= thresholds.low) {
+              // Only flag positive stock below threshold as critical/low
+              // Zero/negative qty without BOM requirement is not an alert
+              if (qty > 0 && qty <= thresholds.low) {
                 alerts.push({ item, type: typeDisplay, qty, status: qty <= thresholds.critical ? "critical" : "low" });
               }
             }

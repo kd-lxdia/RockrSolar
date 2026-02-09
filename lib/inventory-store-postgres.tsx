@@ -14,6 +14,7 @@ export interface InventoryEvent {
   supplier: string;
   kind: "IN" | "OUT";
   brand?: string; // Optional brand/make field, defaults to "standard" if empty
+  gst?: number; // GST percentage (e.g. 18 for 18%)
 }
 
 export interface InventoryContextType {
@@ -90,6 +91,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           qty: Math.floor(Number(e.qty) || 0),
           rate: Number(e.rate) || 0,
           timestamp: Number(e.timestamp) || 0,
+          gst: Number(e.gst) || 0,
         }));
         setEvents(normalized);
       }
@@ -322,6 +324,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           qty: Math.floor(Number(result.data.qty) || 0),
           rate: Number(result.data.rate) || 0,
           timestamp: Number(result.data.timestamp) || 0,
+          gst: Number(result.data.gst) || 0,
         };
         setEvents(prev => [normalizedEvent, ...prev]);
         pushNotification(

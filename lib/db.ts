@@ -48,6 +48,7 @@ export interface InventoryEvent {
   supplier: string;
   kind: "IN" | "OUT";
   brand?: string; // Optional brand/make field, defaults to "standard" if empty
+  gst?: number; // GST percentage (e.g. 18 for 18%)
 }
 
 export interface BOMRecord {
@@ -199,6 +200,13 @@ export async function initDatabase() {
     } catch (e) {
       // Column might already exist, ignore error
       console.log('brand column already exists or error:', e);
+    }
+
+    // Add gst column to events table if it doesn't exist (migration)
+    try {
+      await sql`ALTER TABLE events ADD COLUMN IF NOT EXISTS gst DECIMAL(5, 2) DEFAULT 0;`;
+    } catch (e) {
+      console.log('gst column already exists or error:', e);
     }
 
     console.log('Database tables initialized successfully');
@@ -412,9 +420,10 @@ export async function getEvents() {
 export async function addEvent(event: InventoryEvent) {
   if (!(await isDbAvailable())) return fallbackDb.addEvent(event);
   const brand = event.brand?.trim() || 'standard'; // Default to 'standard' if empty
+  const gst = event.gst || 0;
   await sql`
-    INSERT INTO events (id, timestamp, item, type, qty, rate, source, supplier, kind, brand)
-    VALUES (${event.id}, ${event.timestamp}, ${event.item}, ${event.type}, ${event.qty}, ${event.rate}, ${event.source}, ${event.supplier}, ${event.kind}, ${brand})
+    INSERT INTO events (id, timestamp, item, type, qty, rate, source, supplier, kind, brand, gst)
+    VALUES (${event.id}, ${event.timestamp}, ${event.item}, ${event.type}, ${event.qty}, ${event.rate}, ${event.source}, ${event.supplier}, ${event.kind}, ${brand}, ${gst})
   `;
 }
 

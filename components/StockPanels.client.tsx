@@ -353,7 +353,8 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
         source: stockInSource || "Unknown",
         supplier: invoiceNo.trim() || "Unknown",
         kind: "IN",
-        brand: stockInBrand.trim() || undefined // Pass brand if provided, otherwise undefined (will default to 'standard')
+        brand: stockInBrand.trim() || undefined, // Pass brand if provided, otherwise undefined (will default to 'standard')
+        gst: stockInGST !== "" ? Number(stockInGST) : 0
       });
 
       console.log('Stock in event added successfully');
@@ -415,7 +416,8 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
               rate: Number(rowData.price) || 0,
               source: globalCustomerName || "Bulk Stock Out",
               supplier: globalInvoiceNo || "Unknown",
-              kind: "OUT"
+              kind: "OUT",
+              gst: Number(rowData.gst) || 0
             });
             
             // Clear the quantity and price fields after processing
@@ -549,7 +551,8 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
           rate: Number(row.price) || 0,
           source: globalCustomerName || "Bulk Stock Out",
           supplier: globalInvoiceNo || "Unknown",
-          kind: "OUT"
+          kind: "OUT",
+          gst: Number(row.gst) || 0
         });
       });
       

@@ -34,6 +34,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Normalize GST percentage
+    event.gst = Number(event.gst) || 0;
+
     // Ensure we have an ID and timestamp
     if (!event.id) {
       event.id = `evt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
