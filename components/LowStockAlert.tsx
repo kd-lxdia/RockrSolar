@@ -40,8 +40,10 @@ export function LowStockAlert() {
   const [lowStockItems, setLowStockItems] = useState<StockItem[]>([]);
   const [thresholds, setThresholds] = useState(getStockThresholds());
 
-  // Listen for threshold changes from Settings
+  // Listen for threshold changes from Settings + load saved thresholds on mount
   useEffect(() => {
+    // Read saved thresholds on client mount (SSR returns defaults)
+    setThresholds(getStockThresholds());
     const handler = () => setThresholds(getStockThresholds());
     window.addEventListener("stock-thresholds-changed", handler);
     return () => window.removeEventListener("stock-thresholds-changed", handler);
