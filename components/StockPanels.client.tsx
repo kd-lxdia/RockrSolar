@@ -345,22 +345,16 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
         return;
       }
 
-      // Calculate base rate from price and GST
-      // If price includes GST, rate = price / (1 + gst/100)
-      const price = stockInPrice !== "" ? Number(stockInPrice) : 0;
-      const gstPercent = stockInGST !== "" ? Number(stockInGST) : 0;
-      const baseRate = gstPercent > 0 ? price / (1 + gstPercent / 100) : price;
-
       await inv.addEvent({
         item,
         type,
         qty: qty,
-        rate: baseRate,
+        rate: stockInPrice !== "" ? Number(stockInPrice) : 0,
         source: stockInSource || "Unknown",
         supplier: invoiceNo.trim() || "Unknown",
         kind: "IN",
         brand: stockInBrand.trim() || undefined, // Pass brand if provided, otherwise undefined (will default to 'standard')
-        gst: gstPercent
+        gst: stockInGST !== "" ? Number(stockInGST) : 0
       });
 
       console.log('Stock in event added successfully');
@@ -415,20 +409,15 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
               return;
             }
 
-            // Calculate base rate from price and GST
-            const price = Number(rowData.price) || 0;
-            const gstPercent = Number(rowData.gst) || 0;
-            const baseRate = gstPercent > 0 ? price / (1 + gstPercent / 100) : price;
-
             await inv.addEvent({
               item: rowData.item,
               type: rowData.type,
               qty: qty,
-              rate: baseRate,
+              rate: Number(rowData.price) || 0,
               source: globalCustomerName || "Bulk Stock Out",
               supplier: globalInvoiceNo || "Unknown",
               kind: "OUT",
-              gst: gstPercent
+              gst: Number(rowData.gst) || 0
             });
             
             // Clear the quantity and price fields after processing
@@ -554,22 +543,16 @@ export default function StockPanels({ mode = "total" }: StockPanelsProps) {
       const promises = validRows.map(row => {
         const qty = Math.floor(Math.abs(Number(row.quantity))); // Ensure positive integer qty
         console.log('Processing row:', row, 'qty:', qty);
-
-        // Calculate base rate from price and GST
-        const price = Number(row.price) || 0;
-        const gstPercent = Number(row.gst) || 0;
-        const baseRate = gstPercent > 0 ? price / (1 + gstPercent / 100) : price;
-
         return inv.addEvent({
           item: row.item,
           type: row.type,
           brand: row.brand || undefined, // Include brand, defaults to 'standard' in backend
           qty: qty,
-          rate: baseRate,
+          rate: Number(row.price) || 0,
           source: globalCustomerName || "Bulk Stock Out",
           supplier: globalInvoiceNo || "Unknown",
           kind: "OUT",
-          gst: gstPercent
+          gst: Number(row.gst) || 0
         });
       });
       
